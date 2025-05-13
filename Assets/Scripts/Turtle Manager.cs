@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using TMPro;
+using System.Globalization;
 
 public class TurtleManager : MonoBehaviour
 {
@@ -31,7 +32,7 @@ public class TurtleManager : MonoBehaviour
 
     [Header("Movement Settings")]
     [Tooltip("forward(1) 당 실제 이동 거리")]
-     public float movementScale = 1f;
+    public float movementScale = 1f;
 
     [Header("Timing")]
     [Tooltip("한 줄(command) 처리 후 멈춰 있을 시간(초)")]
@@ -105,7 +106,7 @@ public class TurtleManager : MonoBehaviour
         }
 
         string raw = commandInput.text;
-        string[] lines = raw.Split(new[] {'\n'}, System.StringSplitOptions.RemoveEmptyEntries);
+        string[] lines = raw.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
         {
             string compact = Regex.Replace(line, "\\s+", "");
@@ -168,12 +169,23 @@ public class TurtleManager : MonoBehaviour
             {
                 if (!cmd.Contains(v)) continue;
                 string name = cmd.Substring(0, cmd.IndexOf(v));
-                string numStr = cmd.Substring(cmd.IndexOf(v) + v.Length, cmd.Length - (cmd.IndexOf(v) + v.Length + 1));
+                string numStr = cmd.Substring(
+                    cmd.IndexOf(v) + v.Length,
+                    cmd.Length - (cmd.IndexOf(v) + v.Length + 1)
+                );
                 if (namedTurtles.TryGetValue(name, out var turtle))
                 {
-                    if (float.TryParse(numStr, out float dist))
+                    if (TryParseExpression(numStr, out float dist))
+                    {
+                        var drawer = turtle.GetComponentInChildren<TurtleDrawer>();
+                        if (drawer != null) drawer.StartDrawing();
+
                         yield return StartCoroutine(turtle.Forward(dist));
-                    else Debug.LogError("[TurtleManager] 거리 숫자 파싱 실패");
+
+                        if (drawer != null) drawer.StopDrawing();
+                    }
+                    else
+                        Debug.LogError($"[TurtleManager] 거리 숫자 파싱 실패: '{numStr}'");
                 }
                 else Debug.LogError($"[TurtleManager] 존재하지 않는 거북이: {name}");
                 break;
@@ -182,18 +194,29 @@ public class TurtleManager : MonoBehaviour
         else if (cmd.Contains(".rotate(") && cmd.EndsWith(")"))
         {
             string name = cmd.Substring(0, cmd.IndexOf(".rotate("));
-            string args = cmd.Substring(cmd.IndexOf(".rotate(") + ".rotate(".Length, cmd.Length - (cmd.IndexOf(".rotate(") + ".rotate(".Length) - 1);
+            string args = cmd.Substring(
+                cmd.IndexOf(".rotate(") + ".rotate(".Length,
+                cmd.Length - (cmd.IndexOf(".rotate(") + ".rotate(".Length) - 1
+            );
             var parts = args.Split(',');
             if (parts.Length == 3 &&
-                float.TryParse(parts[0], out float x) &&
-                float.TryParse(parts[1], out float y) &&
-                float.TryParse(parts[2], out float z) &&
+                TryParseExpression(parts[0], out float x) &&
+                TryParseExpression(parts[1], out float y) &&
+                TryParseExpression(parts[2], out float z) &&
                 namedTurtles.TryGetValue(name, out var turtle)
             )
             {
+                var drawer = turtle.GetComponentInChildren<TurtleDrawer>();
+                if (drawer != null) drawer.StartDrawing();
+
                 yield return StartCoroutine(turtle.Rotate(x, y, z));
+
+                if (drawer != null) drawer.StopDrawing();
             }
-            else Debug.LogError("[TurtleManager] rotate 인자 파싱 실패 또는 거북이 없음");
+            else
+            {
+                Debug.LogError($"[TurtleManager] rotate 인자 파싱 실패 또는 거북이 없음: '{args}'");
+            }
         }
         else
         {
@@ -202,6 +225,40 @@ public class TurtleManager : MonoBehaviour
 
         yield return new WaitForSeconds(stepDelay);
         isProcessing = false;
+    }
+
+    private bool TryParseExpression(string s, out float result)
+    {
+        s = s.Trim();
+        var mul = s.Split('*');
+        if (mul.Length == 2
+            && TryParseExpression(mul[0], out float left)
+            && TryParseExpression(mul[1], out float right))
+        {
+            result = left * right;
+            return true;
+        }
+
+        // 1) 접미사 f/F 제거
+        if (s.EndsWith("f", System.StringComparison.OrdinalIgnoreCase))
+            s = s[..^1];
+
+        // 2) sqrt(...) 패턴 처리
+        var m = Regex.Match(s, @"^sqrt\((.+)\)$", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            if (TryParseExpression(m.Groups[1].Value, out float inner))
+            {
+                result = Mathf.Sqrt(inner);
+                return true;
+            }
+        }
+
+        // 3) 일반 실수 파싱 (지수 표기법 포함)
+        return float.TryParse(s,
+                              NumberStyles.Float | NumberStyles.AllowThousands,
+                              CultureInfo.InvariantCulture,
+                              out result);
     }
 
     /********************************************************
@@ -226,6 +283,10 @@ public class TurtleManager : MonoBehaviour
             go.transform.localPosition = spawnPosition;
             go.transform.localRotation = spawnRotation;
             go.transform.localScale = turtleScale;
+
+            var drawer = go.GetComponentInChildren<TurtleDrawer>();
+            if (drawer != null)
+                drawer.ClearTrail();
         }
         namedTurtles.Clear();
         variables.Clear();

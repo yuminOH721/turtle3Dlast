@@ -1774,11 +1774,21 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'a = Turtle()
 
-    a.forward(5)
 
-    a.rotate(90, 90, 0)
 
-    a.forward(5)'
+    a.rotate(0, 45, 0)
+
+    a.forward(5*sqrt(2))
+
+    a.rotate(45,
+    135, 0)
+
+    a.forward(sqrt(2)*5)
+
+    a.rotate(-30, 125, -54)
+
+    a.forward(5
+    * sqrt(2 ))'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3745,7 +3755,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1228281877}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 781942577}
+        m_TargetAssemblyTypeName: ButtonManager, Assembly-CSharp
+        m_MethodName: ResetButtonClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1228281877
 MonoBehaviour:
   m_ObjectHideFlags: 0

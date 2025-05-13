@@ -49,7 +49,7 @@ public class Turtle3D : MonoBehaviour
             tr.rotation = localRot;
         }
 
-    //    anim = GetComponent<Animation>();
+        //    anim = GetComponent<Animation>();
     }
 
 
@@ -81,24 +81,32 @@ public class Turtle3D : MonoBehaviour
     /// <summary>
     /// 그리드 로컬 축 기준으로 부드럽게 회전
     /// </summary>
+    /// 디버그 로그 찍어보기
     public IEnumerator Rotate(float x, float y, float z)
     {
-        Quaternion start = tr.localRotation;
-        Quaternion end = start * Quaternion.Euler(x, y, z);
-        float elapsed = 0f;
-        float angle = Quaternion.Angle(start, end);
+        // 시작 시점의 회전(Quaternion)
+        Quaternion startRotation = tr.rotation;
+        // x,y,z 만큼 회전하는 델타 Quaternion
+        Quaternion delta = Quaternion.Euler(x, y, z);
+        // 최종 회전값
+        Quaternion endRotation = startRotation * delta;
+
+        // 실제 회전 각(°)과 지속시간 계산
+        float angle = Quaternion.Angle(startRotation, endRotation);
         float duration = angle / rotateSpeed;
+        float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            tr.localRotation = Quaternion.Slerp(start, end, t);
+            // Slerp로 부드럽게 회전
+            tr.rotation = Quaternion.Slerp(startRotation, endRotation, t);
             yield return null;
         }
-        tr.localRotation = end;
-   
 
-       // anim.Play("Idle");
+        // 정확히 목표 회전값 적용
+        tr.rotation = endRotation;
     }
+
 }
