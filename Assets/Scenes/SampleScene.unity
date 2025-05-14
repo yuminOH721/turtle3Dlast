@@ -1755,7 +1755,6 @@ MonoBehaviour:
   m_text: 'a = Turtle()
 
 
-
     a.rotate(0, 45, 0)
 
     a.forward(5*sqrt(2))
@@ -1795,8 +1794,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 0.05
-  m_fontSizeBase: 0.05
+  m_fontSize: 0.04
+  m_fontSizeBase: 0.04
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2285,6 +2284,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 653ba8316d0d6a744abd94088506b140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &782628382
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 782628375}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64767cd06e2089b47adeb0f715d70263, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textDisplay: {fileID: 443947388}
 --- !u!1 &806912807
 GameObject:
   m_ObjectHideFlags: 0
@@ -2460,10 +2472,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridParent: {fileID: 961819085}
-  turtlePrefab: {fileID: 4891450837185826143, guid: ebcb3a310066c524994fcd91352e550d, type: 3}
+  turtlePrefab: {fileID: 8522709082990672822, guid: b5b8556cad7914044a23b5c0ec34d6f1, type: 3}
   commandInput: {fileID: 443947388}
   maxTurtles: 1
-  turtleScale: {x: 0.05, y: 0.05, z: 0.05}
+  turtleScale: {x: 0.3, y: 0.3, z: 0.3}
   movementScale: 0.2
   stepDelay: 0.5
 --- !u!1 &951649527
@@ -3388,11 +3400,11 @@ MonoBehaviour:
   m_PermittedDisplacementAxes: -1
   m_ConstrainedAxisDisplacementMode: 1
   m_TwoHandedRotationMode: 1
-  m_AllowOneHandedScaling: 1
-  m_AllowTwoHandedScaling: 0
+  m_AllowOneHandedScaling: 0
+  m_AllowTwoHandedScaling: 1
   m_OneHandedScaleSpeed: 0.5
   m_ThresholdMoveRatioForScale: 0.05
-  m_ClampScaling: 1
+  m_ClampScaling: 0
   m_MinimumScaleRatio: 0.25
   m_MaximumScaleRatio: 2
   m_ScaleMultiplier: 0.25
@@ -4816,6 +4828,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3349189546251630084, guid: 98526bfe2d44d0c4ea90a19641c7741a, type: 3}
       insertIndex: -1
       addedObject: {fileID: 782628381}
+    - targetCorrespondingSourceObject: {fileID: 3349189546251630084, guid: 98526bfe2d44d0c4ea90a19641c7741a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 782628382}
   m_SourcePrefab: {fileID: 100100000, guid: 98526bfe2d44d0c4ea90a19641c7741a, type: 3}
 --- !u!1 &1528036606
 GameObject:
