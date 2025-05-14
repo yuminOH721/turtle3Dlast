@@ -1,8 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using TMPro;
+using UnityEngine.SceneManagement;
 
-public class ButtonManager : MonoBehaviour
+public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
     [SerializeField] private TurtleManager turtleManager;
 
@@ -56,27 +59,77 @@ public class ButtonManager : MonoBehaviour
         }
     }
 
+
+    //NextZone!!
     public void GoToNextZone()
     {
         Debug.Log("Next Zone!"); //다음 존으로 이동
     }
 
-    public void HelpButtonClicked()
+
+    //Help!!!
+    public TextMeshProUGUI HelpText;
+    public string originalProblem = "Draw a triangle!";
+
+    private string[] hints = {
+        "How many lines make a triangle?",
+        "Each line should connect to the next — think angles!",
+        "Use forward() and left() three times, with turns adding up to 180°."
+    };
+
+    private int currentHintIndex = 0;
+
+    public void ShowNextHint()
     {
-        Debug.Log("Let me help you"); //도움말
-    }
-    public void ShowAnswer()
-    {
-        Debug.Log("Answer!"); //소리크기조절
+        StopAllCoroutines(); // 중복 호출 방지
+        StartCoroutine(ShowHintThenRestore());
     }
 
+    private IEnumerator ShowHintThenRestore()
+    {
+        HelpText.text = hints[currentHintIndex];
+
+        currentHintIndex = (currentHintIndex + 1) % hints.Length;
+
+        yield return new WaitForSeconds(3f); // 3초 후
+        HelpText.text = originalProblem;
+    }
+
+    //Answer!!
+    public TextMeshProUGUI AnswerText;
+
+    private string originalText;
+    private string answerText = "turtle.forward(100)\nturtle.left(120)\nturtle.forward(100)\nturtle.left(120)\nturtle.forward(100)";
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        originalText = AnswerText.text; // 기존 텍스트 저장
+        AnswerText.text = answerText;
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        AnswerText.text = originalText; // 원래 텍스트 복원
+    }
+
+    public void ShowAnswer()
+    {
+        Debug.Log("Answer!");
+    }
+
+     
+    //Error!!
     public void ErrorButton()
     {
         Debug.Log("Something Wrong!"); //오류 알려주기
     }
 
-    public void ExitButtonClicked()
+
+    //Exit!!
+    public void LoadFinishScene()
     {
+        SceneManager.LoadScene("FinishScene");
+    
         Debug.Log("Exit!"); //나가기
     }
 
