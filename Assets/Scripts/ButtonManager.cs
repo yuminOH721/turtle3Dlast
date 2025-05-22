@@ -7,15 +7,33 @@ using UnityEngine.SceneManagement;
 
 public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
+    private string lastClickedButton = "";
+
     [SerializeField] private TurtleManager turtleManager;
 
     public void StopButtonClicked()
     {
+        if (lastClickedButton == "Stop")
+        {
+            Debug.Log("Stop 버튼 연속 클릭 방지됨");
+            return;
+        }
+
+        lastClickedButton = "Stop";
+
         Debug.Log("Stop!"); //일시정지
     }
 
     public void RunButtonClicked()
     {
+        if (lastClickedButton == "Run")
+        {
+            Debug.Log("Run 버튼 연속 클릭 방지됨");
+            return;
+        }
+
+        lastClickedButton = "Run";
+
         Debug.Log("Run!"); //����
         if (turtleManager != null)
         {
@@ -43,6 +61,14 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
 
     public void ResetButtonClicked()
     {
+        if (lastClickedButton == "Reset")
+        {
+            Debug.Log("Reset 버튼 연속 클릭 방지됨");
+            return;
+        }
+
+        lastClickedButton = "Reset";
+
         Debug.Log("Reset!"); // 초기 상태로 되돌리기
 
         if (turtleManager != null)
@@ -63,7 +89,15 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     //NextZone!!
     public void GoToNextZone()
     {
-        Debug.Log("Next Zone!"); //다음 존으로 이동
+        if (lastClickedButton == "Next")
+        {
+            Debug.Log("Next 버튼 연속 클릭 방지됨");
+            return;
+        }
+
+        lastClickedButton = "Next";
+
+        Debug.Log("Next"); //다음으로 이동
     }
 
 
@@ -81,6 +115,7 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
 
     public void ShowNextHint()
     {
+        Debug.Log("Hint!");
         StopAllCoroutines(); // 중복 호출 방지
         StartCoroutine(ShowHintThenRestore());
     }
@@ -121,6 +156,7 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     //Error!!
     public void ErrorButton()
     {
+
         Debug.Log("Something Wrong!"); //오류 알려주기
     }
 
