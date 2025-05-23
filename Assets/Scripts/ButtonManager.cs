@@ -35,6 +35,7 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
         lastClickedButton = "Run";
 
         Debug.Log("Run!"); //����
+
         if (turtleManager != null)
         {
             turtleManager.ResetAllTurtles();
