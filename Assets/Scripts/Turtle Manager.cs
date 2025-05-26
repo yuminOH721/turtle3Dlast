@@ -1,226 +1,319 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using TMPro;
-using System.Globalization;
 
+//================================================================================
+// TurtleManager: 명령 해석, 풀 관리, UI 출력, 바운드 체크, 펜 제어
+//================================================================================
 public class TurtleManager : MonoBehaviour
 {
-    /*────────────────────────────────────────────────────
-     * 1. 인스펙터 바인딩용 필드
-     *───────────────────────────────────────────────────*/
-    [Header("Grid Parent for Turtles")]
-    [Tooltip("거북이 이동 제한용 부모 Transform (Grid)")]
-    public Transform gridParent;
-
-    [Header("Prefabs & UI")]
-    [Tooltip("거북이 프리팹")]
-    public GameObject turtlePrefab;
-    [Tooltip("동일 씬 캔버스에 있는 TextMeshPro Text")]
+    [Header("Grid Parent for Turtles")] public Transform gridParent;
+    [Header("Prefabs & UI")] public GameObject turtlePrefab;
     public TMP_Text commandInput;
-
-    [Header("Spawn Settings")]
-    [Tooltip("최대 스폰 가능한 거북이 수")]
-    public int maxTurtles = 5;
+    [Header("Spawn Settings")] public int maxTurtles = 5;
     public static Vector3 spawnPosition = Vector3.zero;
     public static readonly Quaternion spawnRotation = Quaternion.identity;
+    [Header("Turtle Appearance")] public Vector3 turtleScale = Vector3.one;
+    [Header("Movement Settings")] public float movementScale = 1f;
+    [Header("Timing")][SerializeField] private float stepDelay = 0.5f;
+    [Header("UI")] public TMP_Text terminalText;
+    [Header("Pen Settings")] public float minPenSize = 0.01f;
+    public float maxPenSize = 0.1f;
 
-    [Header("Turtle Appearance")]
-    [Tooltip("거북이 크기 스케일")]
-    public Vector3 turtleScale = Vector3.one;
-
-    [Header("Movement Settings")]
-    [Tooltip("forward(1) 당 실제 이동 거리")]
-    public float movementScale = 1f;
-
-    [Header("Timing")]
-    [Tooltip("한 줄(command) 처리 후 멈춰 있을 시간(초)")]
-    [SerializeField] private float stepDelay = 0.5f;
-
-    /*────────────────────────────────────────────────────
-     * 2. 내부 풀 및 전역 테이블
-     *───────────────────────────────────────────────────*/
     private readonly List<GameObject> turtlePool = new();
     private readonly Dictionary<string, Turtle3D> namedTurtles = new();
     private readonly Dictionary<string, Vector3> variables = new();
-
-    /*────────────────────────────────────────────────────
-     * 3. 명령어 큐 및 처리 상태 관리
-     *───────────────────────────────────────────────────*/
     private readonly Queue<string> commandQueue = new();
-    private bool isProcessing = false;
+    private bool isProcessing;
 
-    /*────────────────────────────────────────────────────
-     * 4. 싱글턴 인스턴스 관리
-     *───────────────────────────────────────────────────*/
     public static TurtleManager instance;
+    private BoxCollider gridCollider;
 
-    /********************************************************
-     * ① 초기 설정 : 싱글턴 인스턴스 생성 및 풀 초기화
-     ********************************************************/
     void Awake()
     {
         if (instance == null) instance = this;
         else if (instance != this) { Destroy(gameObject); return; }
-
         DontDestroyOnLoad(gameObject);
 
         if (gridParent == null)
-            Debug.LogError("[TurtleManager] gridParent 미할당! Inspector에서 Grid 오브젝트를 연결하세요.");
+            Debug.LogError("[TurtleManager] gridParent 미할당! Inspector에서 Grid 오브젝트 연결 필요.");
+        else
+        {
+            gridCollider = gridParent.GetComponent<BoxCollider>();
+            if (gridCollider != null)
+            {
+                // 로컬 사이즈(Scale 미반영) × 부모 LossyScale → 진짜 월드 한 칸 크기
+                float worldGridSize = gridCollider.bounds.size.x;
+
+                // 2) 한 칸당 월드 크기
+                float worldCellSize = worldGridSize / 6f;
+
+                // 3) forward(1) == 1칸 == 1 * worldCellSize 이동
+                movementScale = worldCellSize;
+
+                // spawnPosition 계산은 그대로
+                Vector3 centerWorld = gridCollider.bounds.center;
+                spawnPosition = gridParent.InverseTransformPoint(centerWorld);
+            }
+        }
 
         CreateTurtlePool();
-
-        if (commandInput == null)
-            Debug.LogWarning("[TurtleManager] commandInput 필드가 할당되지 않았습니다.");
+        if (commandInput == null) Debug.LogWarning("[TurtleManager] commandInput 미할당.");
+        if (terminalText == null) Debug.LogWarning("[TurtleManager] terminalText 미할당.");
     }
 
-    /********************************************************
-     * ② 거북이 풀 초기 생성
-     ********************************************************/
+    void Start()
+    {
+        ResetAllTurtles();  // Play 버튼 클릭 시 초기화
+    }
+
     void CreateTurtlePool()
     {
+        foreach (var go in turtlePool) Destroy(go);
+        turtlePool.Clear();
+
         for (int i = 0; i < maxTurtles; i++)
         {
-            GameObject go = Instantiate(
-                turtlePrefab,
-                spawnPosition,
-                spawnRotation,
-                gridParent
-            );
+            // 부모(transform) 아래 로컬 위치 spawnPosition 에 인스턴스
+            var go = Instantiate(turtlePrefab, gridParent);
+            go.transform.localPosition = spawnPosition;
+            go.transform.localRotation = Quaternion.identity;
             go.transform.localScale = turtleScale;
             go.SetActive(false);
             turtlePool.Add(go);
         }
     }
 
-    /********************************************************
-     * ③ 명령어 큐 입력 (텍스트 읽어서 처리)
-     ********************************************************/
+
+
     public void ExecuteCurrentCommand()
     {
-        if (commandInput == null)
-        {
-            Debug.LogError("[TurtleManager] commandInput is null! 인스펙터에서 연결했는지 확인하세요.");
-            return;
-        }
-
-        string raw = commandInput.text;
-        string[] lines = raw.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        if (commandInput == null) return;
+        var lines = commandInput.text.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
         {
-            string compact = Regex.Replace(line, "\\s+", "");
-            EnqueueCommand(compact);
+            var cmd = Regex.Replace(line, "\\s+", "");
+            if (!string.IsNullOrWhiteSpace(cmd)) commandQueue.Enqueue(cmd);
         }
     }
 
-    void EnqueueCommand(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return;
-        commandQueue.Enqueue(raw);
-    }
-
-    /********************************************************
-     * ④ 매 프레임 명령어 처리
-     ********************************************************/
     void Update()
     {
         if (!isProcessing && commandQueue.Count > 0)
             StartCoroutine(ProcessCommand(commandQueue.Dequeue()));
     }
 
-    /********************************************************
-     * ⑤ 명령어 해석 및 실행
-     ********************************************************/
+    void PrintError(string msg)
+    {
+        Debug.LogError(msg);
+        if (terminalText != null) terminalText.text = msg;
+    }
+
     private IEnumerator ProcessCommand(string cmd)
     {
         isProcessing = true;
+        string raw = cmd;
+        string lower = cmd.ToLowerInvariant();
 
-        if (cmd.EndsWith("Turtle()") && cmd.Contains('='))
+        // 1) 생성: a=Turtle()
+        if (lower.EndsWith("turtle()") && raw.Contains("="))
         {
-            var parts = cmd.Split('=');
-            string name = parts[0];
+            var parts = raw.Split('=');
+            var name = parts[0];
             var go = GetTurtleFromPool();
             if (go != null)
             {
                 go.SetActive(true);
-                var turtle = go.GetComponent<Turtle3D>();
-                turtle.Initialize(name, spawnPosition, spawnRotation);
-                namedTurtles[name] = turtle;
+                var t = go.GetComponent<Turtle3D>();
+                t.Initialize(name, spawnPosition, spawnRotation);
+                namedTurtles[name] = t;
             }
-            else Debug.LogError("[TurtleManager] 풀에 남은 거북이가 없습니다.");
+            else PrintError("[TurtleManager] 풀에 남은 거북이 없음.");
         }
-        else if (cmd.EndsWith(".position()") && cmd.Contains('='))
+        // 2) 위치 저장: v=a.position()
+        else if (lower.EndsWith(".position()") && raw.Contains("="))
         {
-            var parts = cmd.Split('=');
-            string varName = parts[0];
-            string key = parts[1].Substring(0, parts[1].IndexOf('.'));
-            if (namedTurtles.TryGetValue(key, out var turtle))
+            var parts = raw.Split('=');
+            var varName = parts[0];
+            var key = parts[1].Substring(0, parts[1].IndexOf('.', StringComparison.Ordinal));
+            if (namedTurtles.TryGetValue(key, out var t))
             {
-                variables[varName] = turtle.Position;
-                Debug.Log($"{varName}=({turtle.Position.x:F2},{turtle.Position.y:F2},{turtle.Position.z:F2})");
+                variables[varName] = t.Position;
+                Debug.Log($"{varName}=({t.Position.x:F2},{t.Position.y:F2},{t.Position.z:F2})");
             }
-            else Debug.LogError($"[TurtleManager] 존재하지 않는 거북이: {key}");
+            else PrintError($"[TurtleManager] 위치 저장 실패: {key} 없음.");
         }
-        else if ((cmd.Contains(".forward(") || cmd.Contains(".fd(")) && cmd.EndsWith(")"))
+        // 3) 이동: forward/fd (바운드 체크)
+        else if ((lower.Contains(".forward(") || lower.Contains(".fd(")) && raw.EndsWith(")"))
         {
-            var verbs = new[] { ".forward(", ".fd(" };
-            foreach (var v in verbs)
+            var token = lower.Contains(".forward(") ? ".forward(" : ".fd(";
+            var idx = lower.IndexOf(token, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+
+            int start = idx + token.Length;
+            int end = raw.LastIndexOf(')');
+            string numText = raw.Substring(start, end - start);
+
+            if (!float.TryParse(numText, out float requestedUnits))
             {
-                if (!cmd.Contains(v)) continue;
-                string name = cmd.Substring(0, cmd.IndexOf(v));
-                string numStr = cmd.Substring(
-                    cmd.IndexOf(v) + v.Length,
-                    cmd.Length - (cmd.IndexOf(v) + v.Length + 1)
-                );
-                if (namedTurtles.TryGetValue(name, out var turtle))
-                {
-                    if (TryParseExpression(numStr, out float dist))
-                    {
-                        var drawer = turtle.GetComponentInChildren<TurtleDrawer>();
-                        if (drawer != null) drawer.StartDrawing();
-
-                        yield return StartCoroutine(turtle.Forward(dist));
-
-                        if (drawer != null) drawer.StopDrawing();
-                    }
-                    else
-                        Debug.LogError($"[TurtleManager] 거리 숫자 파싱 실패: '{numStr}'");
-                }
-                else Debug.LogError($"[TurtleManager] 존재하지 않는 거북이: {name}");
-                break;
+                PrintError($"[TurtleManager] forward 파싱 실패: {raw}");
+                yield break;
             }
-        }
-        else if (cmd.Contains(".rotate(") && cmd.EndsWith(")"))
-        {
-            string name = cmd.Substring(0, cmd.IndexOf(".rotate("));
-            string args = cmd.Substring(
-                cmd.IndexOf(".rotate(") + ".rotate(".Length,
-                cmd.Length - (cmd.IndexOf(".rotate(") + ".rotate(".Length) - 1
-            );
-            var parts = args.Split(',');
-            if (parts.Length == 3 &&
-                TryParseExpression(parts[0], out float x) &&
-                TryParseExpression(parts[1], out float y) &&
-                TryParseExpression(parts[2], out float z) &&
-                namedTurtles.TryGetValue(name, out var turtle)
-            )
+
+            if (!namedTurtles.TryGetValue(name, out var t))
             {
-                var drawer = turtle.GetComponentInChildren<TurtleDrawer>();
-                if (drawer != null) drawer.StartDrawing();
+                PrintError($"[TurtleManager] forward 대상 거북이 없음: {name}");
+                yield break;
+            }
 
-                yield return StartCoroutine(turtle.Rotate(x, y, z));
+            float cellSize = CellSize;
+            float requestedDist = requestedUnits * cellSize;
 
-                if (drawer != null) drawer.StopDrawing();
+            // 로컬 좌표 기준 이동
+            Vector3 localStart = t.transform.localPosition;
+            Vector3 localDir = t.transform.localRotation * Vector3.forward;
+            Vector3 localTarget = localStart + localDir * requestedDist;
+
+            Vector3 center = gridCollider.center;
+            Vector3 size = gridCollider.size;
+            Vector3 halfSize = size * 0.5f;
+
+            float epsilon = 1e-4f;  // 허용 오차
+            bool insideX = localTarget.x >= (center.x - halfSize.x - epsilon) && localTarget.x <= (center.x + halfSize.x + epsilon);
+            bool insideY = localTarget.y >= (center.y - halfSize.y - epsilon) && localTarget.y <= (center.y + halfSize.y + epsilon);
+            bool insideZ = localTarget.z >= (center.z - halfSize.z - epsilon) && localTarget.z <= (center.z + halfSize.z + epsilon);
+
+            // 디버깅 로그
+            Debug.Log($"[Debug] 🐢 {name}.forward({requestedUnits})");
+            Debug.Log($"Start(local): {localStart}, Dir: {localDir.normalized}, Target(local): {localTarget}");
+            Debug.Log($"Grid Center(local): {center}, HalfSize: {halfSize}");
+            Debug.Log($"Inside Check → X: {insideX}, Y: {insideY}, Z: {insideZ}");
+
+            if (insideX && insideY && insideZ)
+            {
+                yield return StartCoroutine(t.Forward(requestedUnits));
             }
             else
             {
-                Debug.LogError($"[TurtleManager] rotate 인자 파싱 실패 또는 거북이 없음: '{args}'");
+                PrintError($"[TurtleManager] 이동 범위 벗어남: {name}");
             }
+        }
+        // 4) 일반 회전: rotate(x,y,z)
+        else if (lower.Contains(".rotate(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".rotate(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var parts = raw.Substring(start, end - start).Split(',');
+            if (parts.Length == 3
+                && namedTurtles.TryGetValue(name, out var t)
+                && TryParseExpression(parts[0], out float rx)
+                && TryParseExpression(parts[1], out float ry)
+                && TryParseExpression(parts[2], out float rz))
+            {
+                yield return StartCoroutine(t.Rotate(rx, ry, rz));
+            }
+            else PrintError($"[TurtleManager] rotate 파싱 실패: {raw}");
+        }
+        // 5) rotatex / rotatey / rotatez
+        else if (lower.Contains(".rotatex(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".rotatex(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var arg = raw.Substring(start, end - start);
+            if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float x))
+                yield return StartCoroutine(t.Rotate(x, 0, 0));
+            else PrintError($"[TurtleManager] rotatex 파싱 실패: {raw}");
+        }
+        else if (lower.Contains(".rotatey(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".rotatey(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var arg = raw.Substring(start, end - start);
+            if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float y))
+                yield return StartCoroutine(t.Rotate(0, y, 0));
+            else PrintError($"[TurtleManager] rotatey 파싱 실패: {raw}");
+        }
+        else if (lower.Contains(".rotatez(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".rotatez(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var arg = raw.Substring(start, end - start);
+            if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float z))
+                yield return StartCoroutine(t.Rotate(0, 0, z));
+            else PrintError($"[TurtleManager] rotatez 파싱 실패: {raw}");
+        }
+        // 6) pencolor(r,g,b)
+        else if (lower.Contains(".pencolor(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".pencolor(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var rgb = raw.Substring(start, end - start).Split(',');
+            if (namedTurtles.TryGetValue(name, out var t) && rgb.Length == 3
+                && float.TryParse(rgb[0], out float r)
+                && float.TryParse(rgb[1], out float g)
+                && float.TryParse(rgb[2], out float b))
+            {
+                t.GetComponentInChildren<TurtleDrawer>().SetPenColor(new Color(r, g, b));
+            }
+            else PrintError($"[TurtleManager] pencolor 파싱 실패: {raw}");
+        }
+        // 7) pensize(n)
+        else if (lower.Contains(".pensize(") && raw.EndsWith(")"))
+        {
+            const string prefix = ".pensize(";
+            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            var name = raw.Substring(0, idx);
+            int start = idx + prefix.Length;
+            int end = raw.LastIndexOf(')');
+            var num = raw.Substring(start, end - start);
+            if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(num, out float size))
+            {
+                size = Mathf.Clamp(size, minPenSize, maxPenSize);
+                t.GetComponentInChildren<TurtleDrawer>().SetPenSize(size);
+            }
+            else PrintError($"[TurtleManager] pensize 파싱 실패: {raw}");
+        }
+        // 8) pendown / pd
+        else if ((lower.EndsWith(".pendown()") || lower.EndsWith(".pd()")))
+        {
+            var name = raw.Substring(0, raw.IndexOf('.', StringComparison.Ordinal));
+             Debug.Log($"[Debug] pendown 호출: {name}");
+            if (namedTurtles.TryGetValue(name, out var t))
+                t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
+            else
+                PrintError($"[TurtleManager] pendown 실패: {name}");
+        }
+        // 9) penup / pu
+        else if ((lower.EndsWith(".penup()") || lower.EndsWith(".pu()")))
+        {
+            var name = raw.Substring(0, raw.IndexOf('.', StringComparison.Ordinal));
+            if (namedTurtles.TryGetValue(name, out var t))
+                t.GetComponentInChildren<TurtleDrawer>().StopDrawing();
+            else PrintError($"[TurtleManager] penup 실패: {name}");
         }
         else
         {
-            Debug.LogError($"[TurtleManager] 명령 해석 실패: {cmd}");
+            PrintError($"[TurtleManager] 명령 해석 실패: {raw}");
         }
 
         yield return new WaitForSeconds(stepDelay);
@@ -231,39 +324,19 @@ public class TurtleManager : MonoBehaviour
     {
         s = s.Trim();
         var mul = s.Split('*');
-        if (mul.Length == 2
-            && TryParseExpression(mul[0], out float left)
-            && TryParseExpression(mul[1], out float right))
+        if (mul.Length == 2 && TryParseExpression(mul[0], out var l) && TryParseExpression(mul[1], out var r))
         {
-            result = left * right;
-            return true;
+            result = l * r; return true;
         }
-
-        // 1) 접미사 f/F 제거
-        if (s.EndsWith("f", System.StringComparison.OrdinalIgnoreCase))
-            s = s[..^1];
-
-        // 2) sqrt(...) 패턴 처리
+        if (s.EndsWith("f", StringComparison.OrdinalIgnoreCase)) s = s[..^1];
         var m = Regex.Match(s, @"^sqrt\((.+)\)$", RegexOptions.IgnoreCase);
-        if (m.Success)
+        if (m.Success && TryParseExpression(m.Groups[1].Value, out var inner))
         {
-            if (TryParseExpression(m.Groups[1].Value, out float inner))
-            {
-                result = Mathf.Sqrt(inner);
-                return true;
-            }
+            result = Mathf.Sqrt(inner); return true;
         }
-
-        // 3) 일반 실수 파싱 (지수 표기법 포함)
-        return float.TryParse(s,
-                              NumberStyles.Float | NumberStyles.AllowThousands,
-                              CultureInfo.InvariantCulture,
-                              out result);
+        return float.TryParse(s, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out result);
     }
 
-    /********************************************************
-     * ⑥ 비활성 개체를 풀에서 가져오기
-     ********************************************************/
     private GameObject GetTurtleFromPool()
     {
         foreach (var go in turtlePool)
@@ -271,9 +344,6 @@ public class TurtleManager : MonoBehaviour
         return null;
     }
 
-    /********************************************************
-     * ⑦ 모든 거북이 초기화
-     ********************************************************/
     public void ResetAllTurtles()
     {
         foreach (var go in turtlePool)
@@ -283,15 +353,19 @@ public class TurtleManager : MonoBehaviour
             go.transform.localPosition = spawnPosition;
             go.transform.localRotation = spawnRotation;
             go.transform.localScale = turtleScale;
-
-            var drawer = go.GetComponentInChildren<TurtleDrawer>();
-            if (drawer != null)
-                drawer.ClearTrail();
+            go.GetComponentInChildren<TurtleDrawer>()?.ClearAllTrails();
         }
-        namedTurtles.Clear();
-        variables.Clear();
-        commandQueue.Clear();
-        isProcessing = false;
-        Debug.Log("[TurtleManager] ResetAllTurtles() 호출—완전 초기화");
+        namedTurtles.Clear(); variables.Clear(); commandQueue.Clear(); isProcessing = false;
+        PrintError("[TurtleManager] 완전 초기화");
     }
+
+    public float CellSize
+    {
+        get
+        {
+            if (gridCollider == null) return 0f;
+            return gridCollider.size.x / 6f;
+        }
+    }
+
 }
