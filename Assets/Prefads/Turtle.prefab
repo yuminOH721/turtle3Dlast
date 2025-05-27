@@ -154,7 +154,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   penTip: {fileID: 8688956453900823567}
   drawDistanceThreshold: 0.01
-  isDrawingEnabled: 0
 --- !u!114 &737961940762480486
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -217,7 +216,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ccface2e61970f540a32de9f9c601c7a, type: 3}
       propertyPath: m_Name
-      value: Turtle_LOD0
+      value: Turtle
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -229,6 +228,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ccface2e61970f540a32de9f9c601c7a, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1249979685510745608}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ccface2e61970f540a32de9f9c601c7a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -364957337552811590}
   m_SourcePrefab: {fileID: 100100000, guid: ccface2e61970f540a32de9f9c601c7a, type: 3}
 --- !u!1 &8522709082990672822 stripped
 GameObject:
@@ -247,10 +249,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cf3135aa9554684e99658ce7db40a35, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  tr: {fileID: 0}
   moveSpeed: 2
   rotateSpeed: 90
   gridScale: 1
   gridParent: {fileID: 0}
+--- !u!114 &-364957337552811590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8522709082990672822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23172655f30c8474ab674714a81693b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  penTip: {fileID: 0}
+  drawDistanceThreshold: 0.1
 --- !u!4 &9010979847846437132 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ccface2e61970f540a32de9f9c601c7a, type: 3}

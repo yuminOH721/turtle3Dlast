@@ -232,8 +232,6 @@ public class TurtleManager : MonoBehaviour
             yield break;
         }
 
-        
-
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
     }
@@ -254,6 +252,7 @@ public class TurtleManager : MonoBehaviour
                 var t = go.GetComponent<Turtle3D>();
                 t.Initialize(name, spawnPosition, spawnRotation);
                 namedTurtles[name] = t;
+                t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
             }
             else PrintError("[TurtleManager] 풀에 남은 거북이 없음.");
         }
@@ -417,29 +416,30 @@ public class TurtleManager : MonoBehaviour
             else PrintError($"[TurtleManager] pensize 파싱 실패: {raw}");
         }
         // 8) pendown / pd
-        else if ((lower.EndsWith(".pendown()") || lower.EndsWith(".pd()")))
+        else if (lower.EndsWith(".pendown()") || lower.EndsWith(".pd()"))
         {
             var name = raw.Substring(0, raw.IndexOf('.', StringComparison.Ordinal));
-            Debug.Log($"[Debug] pendown 호출: {name}");
             if (namedTurtles.TryGetValue(name, out var t))
                 t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
             else
                 PrintError($"[TurtleManager] pendown 실패: {name}");
+            yield break;
         }
         // 9) penup / pu
-        else if ((lower.EndsWith(".penup()") || lower.EndsWith(".pu()")))
+        else if (lower.EndsWith(".penup()") || lower.EndsWith(".pu()"))
         {
             var name = raw.Substring(0, raw.IndexOf('.', StringComparison.Ordinal));
             if (namedTurtles.TryGetValue(name, out var t))
                 t.GetComponentInChildren<TurtleDrawer>().StopDrawing();
-            else PrintError($"[TurtleManager] penup 실패: {name}");
+            else
+                PrintError($"[TurtleManager] penup 실패: {name}");
+            yield break;
         }
         else
         {
             PrintError($"[TurtleManager] 명령 해석 실패: {raw}");
         }
     }
-
 
 
     private bool TryParseExpression(string s, out float result)
@@ -467,19 +467,28 @@ public class TurtleManager : MonoBehaviour
     }
 
     public void ResetAllTurtles()
+{
+    foreach (var go in turtlePool)
     {
-        foreach (var go in turtlePool)
+        go.SetActive(false);
+        go.transform.SetParent(gridParent, false);
+        go.transform.localPosition = spawnPosition;
+        go.transform.localRotation = spawnRotation;
+        go.transform.localScale = turtleScale;
+
+        var drawer = go.GetComponentInChildren<TurtleDrawer>();
+        if (drawer != null)
         {
-            go.SetActive(false);
-            go.transform.SetParent(gridParent, false);
-            go.transform.localPosition = spawnPosition;
-            go.transform.localRotation = spawnRotation;
-            go.transform.localScale = turtleScale;
-            go.GetComponentInChildren<TurtleDrawer>()?.ClearAllTrails();
+            drawer.ClearAllTrails();     
+            drawer.StartDrawing();      
         }
-        namedTurtles.Clear(); variables.Clear(); commandQueue.Clear(); isProcessing = false;
-        PrintError("[TurtleManager] 완전 초기화");
     }
+    namedTurtles.Clear();
+    variables.Clear();
+    commandQueue.Clear();
+    isProcessing = false;
+    PrintError("[TurtleManager] 완전 초기화");
+}
 
     public float CellSize
     {

@@ -19,24 +19,33 @@ public class TurtleDrawer : MonoBehaviour
 
     void Awake()
     {
+         gridcube = TurtleManager.instance?.gridParent;
+        if (gridcube == null)
+            Debug.LogError("[TurtleDrawer] gridParent가 할당되지 않음.");
+
         var baseLR = GetComponent<LineRenderer>();
-        lineMaterial = baseLR.material;
+        lineMaterial   = baseLR.material;
         lineStartWidth = baseLR.startWidth;
-        lineEndWidth = baseLR.endWidth;
+        lineEndWidth   = baseLR.endWidth;
         baseLR.enabled = false;
-        var found = GameObject.Find("Gridcube");
-        gridcube = found != null ? found.transform : null;
+
+        StartDrawing();
     }
 
     public void StartDrawing()
     {
+        if (isDrawingEnabled)
+            return;
+
         var go = new GameObject("TurtleTrail");
         go.transform.SetParent(gridcube, false);
+
         var lr = go.AddComponent<LineRenderer>();
         lr.useWorldSpace = true;
         lr.material = lineMaterial;
         lr.startWidth = lineStartWidth;
         lr.endWidth = lineEndWidth;
+
         currentLine = lr;
         localPoints.Clear();
         isDrawingEnabled = true;
@@ -44,6 +53,9 @@ public class TurtleDrawer : MonoBehaviour
 
     public void StopDrawing()
     {
+        if (!isDrawingEnabled) 
+            return;
+
         isDrawingEnabled = false;
         currentLine = null;
         localPoints.Clear();
@@ -51,6 +63,8 @@ public class TurtleDrawer : MonoBehaviour
 
     public void ClearAllTrails()
     {
+        StopDrawing();
+        
         var trails = Object.FindObjectsByType<LineRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var lr in trails)
         {
