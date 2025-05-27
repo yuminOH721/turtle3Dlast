@@ -2674,32 +2674,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'a = Turtle()
-
-
-    a.pu()
-
-    a.forward(2)
-
-    a.rotateY(90)
-
-    a.pd()
-
-    a.forward(3)
-
-    a.rotateY(90)
-
-    a.pu()
-
-    a.forward(3)
-
-    a.rotateY(90)
-
-    a.pd()
-
-    a.forward(3)
-
-'
+  m_text: "a = Turtle()\nprint(\"\uC2DC\uC791\uD569\uB2C8\uB2E4\")\r\n\r\nfor i in
+    range(3):\r\n    print(\"for \uB8E8\uD504 \uC911\uC785\uB2C8\uB2E4\")\r\n   
+    a.forward(1)\r\n\r\nif 1:\r\n    print(\"if \uBE14\uB85D \uC2E4\uD589\")\r\n   
+    a.rotateY(90)\r\n\r\nwhile 1:\r\n    a.forward(1)\r\n    break\r\n\r\nprint(\"\uC644\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4\")\r"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

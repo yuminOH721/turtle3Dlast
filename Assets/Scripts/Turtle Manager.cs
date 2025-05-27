@@ -28,7 +28,8 @@ public class TurtleManager : MonoBehaviour
     private readonly List<GameObject> turtlePool = new();
     private readonly Dictionary<string, Turtle3D> namedTurtles = new();
     private readonly Dictionary<string, Vector3> variables = new();
-    private readonly Queue<string> commandQueue = new();
+    private readonly Queue<Command> commandQueue = new Queue<Command>();
+
     private bool isProcessing;
 
     public static TurtleManager instance;
@@ -89,18 +90,23 @@ public class TurtleManager : MonoBehaviour
         }
     }
 
-
-
     public void ExecuteCurrentCommand()
     {
-        if (commandInput == null) return;
-        var lines = commandInput.text.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = commandInput.text.Split('\n');
         foreach (var line in lines)
         {
-            var cmd = Regex.Replace(line, "\\s+", "");
-            if (!string.IsNullOrWhiteSpace(cmd)) commandQueue.Enqueue(cmd);
+            // 원본 앞부분의 공백 개수 세기
+            int indent = 0;
+            while (indent < line.Length && char.IsWhiteSpace(line[indent])) indent++;
+
+            // Trim()으로 양끝 공백만 지운 실제 명령문
+            var raw = line.Trim();
+            if (raw.Length == 0) continue;
+
+            commandQueue.Enqueue(new Command(raw, indent));
         }
     }
+
 
     void Update()
     {
@@ -114,21 +120,137 @@ public class TurtleManager : MonoBehaviour
         if (terminalText != null) terminalText.text = msg;
     }
 
-    private IEnumerator ProcessCommand(string cmd)
+    private IEnumerator ProcessCommand(Command cmd)
     {
         isProcessing = true;
-        string raw = cmd;
-        string lower = cmd.ToLowerInvariant();
+        string raw = cmd.Raw;
+        string lower = raw.ToLowerInvariant();
 
+
+        yield return StartCoroutine(DispatchCommand(cmd));
+
+        yield return new WaitForSeconds(stepDelay);
+        isProcessing = false;
+    }
+
+    private IEnumerator DispatchCommand(Command cmd)
+    {
+        string raw = cmd.Raw;
+        int indent = cmd.Indent;
+        string lower = raw.ToLowerInvariant();
+
+        // 1) normalized 검사
+        string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
+
+        // print("...")
+        if (normalized.StartsWith("print(") && normalized.EndsWith(")"))
+        {
+            string content = raw.Substring(raw.IndexOf('(') + 1,
+                                           raw.LastIndexOf(')') - raw.IndexOf('(') - 1);
+            terminalText.text = content;
+            Debug.Log($"[print] {content}");
+            yield break;
+        }
+
+        // for i in range(n):
+        if (Regex.IsMatch(normalized, @"^for [a-zA-Z_]\w* in range\(\d+\):$"))
+        {
+            var bodyCmds = DequeueBlock(indent);
+            if (bodyCmds.Count == 0)
+            {
+                PrintError("[TurtleManager] 파이썬 문법 오류: for문 블록 없음");
+                yield break;
+            }
+
+            string[] tokens = normalized
+                .Split(new[] { ' ', '(', ')', ':' }, StringSplitOptions.RemoveEmptyEntries);
+            int count = int.Parse(tokens[4]);
+
+            for (int i = 0; i < count; i++)
+                foreach (var c in bodyCmds)
+                    commandQueue.Enqueue(c);
+
+            yield break;
+        }
+
+        // if condition:
+        if (Regex.IsMatch(normalized, @"^if .+:$"))
+        {
+            // 조건식 추출
+            string condition = raw
+                .Substring(raw.IndexOf("if", StringComparison.Ordinal) + 2)
+                .TrimEnd(':')
+                .Trim();
+
+            // 블록 모두 꺼내서
+            var bodyCmds = DequeueBlock(indent);
+
+            // 조건이 false면 그냥 버리고
+            if (!EvaluateCondition(condition))
+                yield break;
+
+            // true면 다시 enqueue
+            foreach (var c in bodyCmds)
+                commandQueue.Enqueue(c);
+
+            yield break;
+        }
+
+        // while condition:
+        if (Regex.IsMatch(normalized, @"^while .+:$"))
+        {
+            string condition = raw
+                .Substring(raw.IndexOf("while", StringComparison.Ordinal) + 5)
+                .TrimEnd(':')
+                .Trim();
+
+            var bodyCmds = DequeueBlock(indent);
+            if (bodyCmds.Count == 0)
+            {
+                PrintError("[TurtleManager] while문 블록 없음");
+                yield break;
+            }
+
+            int maxLoop = 1000;
+            bool breakLoop = false;
+            while (EvaluateCondition(condition) && maxLoop-- > 0)
+            {
+                foreach (var c in bodyCmds)
+                {
+                    if (c.Raw.Trim() == "break")
+                    {
+                        breakLoop = true;
+                        break;
+                    }
+                    commandQueue.Enqueue(c);
+                }
+                if (breakLoop) break;
+            }
+            if (maxLoop <= 0)
+                PrintError("[TurtleManager] while문 루프가 너무 깁니다.");
+
+            yield break;
+        }
+
+        
+
+        // 나머지 기본 명령
+        yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
+    }
+
+
+    private IEnumerator HandleBuiltinCommands(string raw, string lower)
+    {
         // 1) 생성: a=Turtle()
         if (lower.EndsWith("turtle()") && raw.Contains("="))
         {
             var parts = raw.Split('=');
-            var name = parts[0];
             var go = GetTurtleFromPool();
             if (go != null)
             {
                 go.SetActive(true);
+                // ===== here we trim so "a = Turtle()" 의 parts[0] "a " → "a" 로
+                var name = parts[0].Trim();
                 var t = go.GetComponent<Turtle3D>();
                 t.Initialize(name, spawnPosition, spawnRotation);
                 namedTurtles[name] = t;
@@ -139,8 +261,9 @@ public class TurtleManager : MonoBehaviour
         else if (lower.EndsWith(".position()") && raw.Contains("="))
         {
             var parts = raw.Split('=');
-            var varName = parts[0];
-            var key = parts[1].Substring(0, parts[1].IndexOf('.', StringComparison.Ordinal));
+            var varName = parts[0].Trim();                          // 왼쪽 변수
+            var rhs = parts[1].Trim();                          // "a.position()"
+            var key = rhs.Substring(0, rhs.IndexOf('.', StringComparison.Ordinal)).Trim();
             if (namedTurtles.TryGetValue(key, out var t))
             {
                 variables[varName] = t.Position;
@@ -297,7 +420,7 @@ public class TurtleManager : MonoBehaviour
         else if ((lower.EndsWith(".pendown()") || lower.EndsWith(".pd()")))
         {
             var name = raw.Substring(0, raw.IndexOf('.', StringComparison.Ordinal));
-             Debug.Log($"[Debug] pendown 호출: {name}");
+            Debug.Log($"[Debug] pendown 호출: {name}");
             if (namedTurtles.TryGetValue(name, out var t))
                 t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
             else
@@ -315,10 +438,9 @@ public class TurtleManager : MonoBehaviour
         {
             PrintError($"[TurtleManager] 명령 해석 실패: {raw}");
         }
-
-        yield return new WaitForSeconds(stepDelay);
-        isProcessing = false;
     }
+
+
 
     private bool TryParseExpression(string s, out float result)
     {
@@ -368,4 +490,41 @@ public class TurtleManager : MonoBehaviour
         }
     }
 
+    private bool EvaluateCondition(string condition)
+    {
+        condition = condition.Trim();
+
+        // 숫자면 0이 아닌 경우 true
+        if (float.TryParse(condition, out float result))
+            return result != 0;
+
+        // 변수 값이 있다면 x != 0 이면 true
+        if (variables.TryGetValue(condition, out var val))
+            return val.x != 0;
+
+        // 그 외는 false
+        return false;
+    }
+
+    private List<Command> DequeueBlock(int parentIndent)
+    {
+        var block = new List<Command>();
+        while (commandQueue.Count > 0 && commandQueue.Peek().Indent > parentIndent)
+            block.Add(commandQueue.Dequeue());
+        return block;
+    }
 }
+
+
+class Command
+{
+    public readonly string Raw;       // Trim()된 텍스트
+    public readonly int Indent;       //  앞 공백(스페이스/탭) 개수
+    public Command(string raw, int indent)
+    {
+        Raw = raw; Indent = indent;
+    }
+
+
+}
+
