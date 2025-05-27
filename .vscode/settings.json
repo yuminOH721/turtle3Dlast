@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "VRproj.sln"
+    "dotnet.defaultSolution": "VR-Turtle.sln"
 }
