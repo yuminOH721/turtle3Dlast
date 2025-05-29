@@ -2,10 +2,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 //================================================================================
-// TurtleDrawer: Trail 그리기 및 펜 설정
+// TurtleDrawer: Trail 그리기 및 무지개 펜 설정
 //================================================================================
 public class TurtleDrawer : MonoBehaviour
 {
+    public Material rainbowLineMat;
+
     public Transform penTip;
     public float drawDistanceThreshold = 0.1f;
 
@@ -19,14 +21,14 @@ public class TurtleDrawer : MonoBehaviour
 
     void Awake()
     {
-         gridcube = TurtleManager.instance?.gridParent;
+        gridcube = TurtleManager.instance?.gridParent;
         if (gridcube == null)
             Debug.LogError("[TurtleDrawer] gridParent가 할당되지 않음.");
 
         var baseLR = GetComponent<LineRenderer>();
-        lineMaterial   = baseLR.material;
+        lineMaterial = baseLR.material;
         lineStartWidth = baseLR.startWidth;
-        lineEndWidth   = baseLR.endWidth;
+        lineEndWidth = baseLR.endWidth;
         baseLR.enabled = false;
 
         StartDrawing();
@@ -34,27 +36,32 @@ public class TurtleDrawer : MonoBehaviour
 
     public void StartDrawing()
     {
-        if (isDrawingEnabled)
-            return;
+        if (isDrawingEnabled) return;
 
         var go = new GameObject("TurtleTrail");
         go.transform.SetParent(gridcube, false);
 
         var lr = go.AddComponent<LineRenderer>();
         lr.useWorldSpace = true;
-        lr.material = lineMaterial;
+
+        // 머티리얼 설정
+        if (rainbowLineMat != null)
+            lr.material = rainbowLineMat;
+        else
+            lr.material = lineMaterial;
+
         lr.startWidth = lineStartWidth;
         lr.endWidth = lineEndWidth;
 
         currentLine = lr;
-        localPoints.Clear();
         isDrawingEnabled = true;
+
+        ApplyRainbow();
     }
 
     public void StopDrawing()
     {
-        if (!isDrawingEnabled) 
-            return;
+        if (!isDrawingEnabled) return;
 
         isDrawingEnabled = false;
         currentLine = null;
@@ -64,13 +71,10 @@ public class TurtleDrawer : MonoBehaviour
     public void ClearAllTrails()
     {
         StopDrawing();
-        
         var trails = Object.FindObjectsByType<LineRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var lr in trails)
-        {
             if (lr.gameObject.name == "TurtleTrail")
                 Destroy(lr.gameObject);
-        }
     }
 
     public void SetPenColor(Color c)
@@ -85,10 +89,40 @@ public class TurtleDrawer : MonoBehaviour
             currentLine.startWidth = currentLine.endWidth = s;
     }
 
+    /// <summary>
+    /// 현재 생성된 LineRenderer에 무지개 Gradient를 설정합니다.
+    /// </summary>
+    public void ApplyRainbow()
+    {
+        if (currentLine == null) return;
+
+        var gradient = new Gradient();
+        gradient.SetKeys(
+            new GradientColorKey[]
+            {
+                new GradientColorKey(Color.red,    0.00f),
+                new GradientColorKey(Color.yellow, 0.17f),
+                new GradientColorKey(Color.green,  0.33f),
+                new GradientColorKey(Color.cyan,   0.50f),
+                new GradientColorKey(Color.blue,   0.67f),
+                new GradientColorKey(new Color(0.5f, 0, 1f), 0.83f),
+                new GradientColorKey(new Color(1f, 0, 1f),   1.00f),
+            },
+            new GradientAlphaKey[]
+            {
+                new GradientAlphaKey(1.0f, 0.0f),
+                new GradientAlphaKey(1.0f, 1.0f),
+            }
+        );
+        currentLine.colorGradient = gradient;
+        currentLine.textureMode = LineTextureMode.Stretch;
+    }
+
     void Update()
     {
         if (!isDrawingEnabled || penTip == null || gridcube == null || currentLine == null)
             return;
+
         var pt = gridcube.InverseTransformPoint(penTip.position);
         if (localPoints.Count == 0 || Vector3.Distance(pt, localPoints[^1]) > drawDistanceThreshold)
         {
