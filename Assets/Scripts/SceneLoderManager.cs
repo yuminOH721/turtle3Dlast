@@ -9,5 +9,11 @@ public class SceneLoderManager : MonoBehaviour
     {
         SceneManager.LoadScene("GateScene");
     }
+
+    public void LoadMainScene()
+    {
+        SceneManager.LoadScene("SampleScene");
+    }
+
 }
 
