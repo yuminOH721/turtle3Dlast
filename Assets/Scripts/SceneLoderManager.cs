@@ -5,9 +5,9 @@ using UnityEngine.SceneManagement;
 
 public class SceneLoderManager : MonoBehaviour
 {
-    public void LoadSampleScene()
+    public void LoadGateScene()
     {
-        SceneManager.LoadScene("SampleScene");
+        SceneManager.LoadScene("GateScene");
     }
 }
 
