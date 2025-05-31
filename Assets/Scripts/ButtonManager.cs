@@ -101,16 +101,10 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     {
         NB = 0;
 
-        if (!isHelpButton) return;
+        //if (!isHelpButton) return;
 
-        if (HelpText != null)
-        {
-            SetQuestion(NB);
-        }
-        else
-        {
-            Debug.LogError($"HelpText가 Start에서 아직 연결되지 않음! (오브젝트: {gameObject.name})");
-        }
+         SetQuestion(NB);
+        
     }
 
     private string[] problems = {
@@ -184,7 +178,7 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     public void ShowNextHint()
     {
         Debug.Log("Hint!");
-        StopAllCoroutines(); // 중복 호출 방지
+        //StopAllCoroutines(); // 중복 호출 방지
         StartCoroutine(ShowHintThenRestore());
     }
 
