@@ -6,7 +6,7 @@ using TMPro;
 using UnityEngine.SceneManagement;
 using SceneLoad.Managers;
 
-public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+public class ButtonManager : MonoBehaviour
 {
 
     private int NB;
@@ -25,10 +25,11 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
         {
             print("튜토리얼)");
         }
-        else { 
+        else
+        {
             SetQuestion(NB);  // 문제 설정
         }
-    
+
     }
 
 
@@ -136,11 +137,27 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
         new string[] { "hint 8-1", "hint 8-2" }
     };
 
+    private string[] allAnswers = {
+        "Answer1",
+        "Answer2",
+        "Answer3",
+        "Answer4",
+        "Answer5",
+        "Answer6",
+        "Answer7",
+        "Answer8"
+    };
 
     private string[] hints;  // 현재 문제의 힌트 배열
     private int currentHintIndex = 0;
     private int currentQuestionIndex = 0;
     private string originalProblem = "";
+
+    public TMP_InputField AnswerText;  // 연결된 InputField
+    public bool isAnswerButton = false;
+    private bool isShowingAnswer = false;// 🔥 상태 토글 변수
+    private int AnswerCount = 0;
+    private string originalAnswerText = "";
 
     //NextZone!!
 
@@ -211,7 +228,37 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     }
 
     //Answer!!
-    public TMP_InputField AnswerText;
+
+    public void ToggleAnswer()
+    {
+        //isShowingAnswer = true;
+        AnswerCount += 1;
+        /*if (!isAnswerButton || AnswerText == null)
+        {
+            Debug.LogWarning("정답 버튼 동작 조건 불충분!");
+            return;
+        }*/
+
+
+        if (!isShowingAnswer && AnswerCount == 1)
+        {
+            originalAnswerText = AnswerText.text;
+            AnswerText.text = allAnswers[currentQuestionIndex];
+            isShowingAnswer = true;
+            Debug.Log("정답 표시!");
+        }
+        else if (AnswerCount == 2)
+        {
+            AnswerText.text = originalAnswerText;
+            isShowingAnswer = false;
+            AnswerCount = 0;
+            Debug.Log("정답 복원!");
+        }
+    }
+
+    //IPointerDownHandler, IPointerUpHandler
+
+    /*public TMP_InputField AnswerText;
     public bool isAnswerButton = false;
 
     private string originalText;
@@ -242,14 +289,18 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
         }
 
         AnswerText.text = originalText; // 원래 텍스트 복원
-    }
+    }*/
 
-    public void ShowAnswer()
+    /*public void ShowAnswer()
     {
-        Debug.Log("Answer!");
-    }
+        if (AnswerText == null)
+        {
+            Debug.LogError("AnswerText가 연결되지 않았습니다!");
+            return;
+        }
+        AnswerText.text = allAnswers[currentQuestionIndex];
+    }*/
 
-     
     //Error!!
     public void ErrorButton()
     {
@@ -262,7 +313,7 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     public void LoadFinishScene()
     {
         SceneManager.LoadScene("FinishScene");
-    
+
         Debug.Log("Exit!"); //나가기
     }
 
