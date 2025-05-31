@@ -4,15 +4,32 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using TMPro;
 using UnityEngine.SceneManagement;
+using SceneLoad.Managers;
 
 public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
 
-    private int NB = 0;
+    private int NB;
 
     private string lastClickedButton = "";
 
     [SerializeField] private TurtleManager turtleManager;
+
+    private void Start()
+    {
+        NB = SceneLoaderManager.selectedIndex;
+
+
+        //if (!isHelpButton) return;
+        if (NB == -1)
+        {
+            print("튜토리얼)");
+        }
+        else { 
+            SetQuestion(NB);  // 문제 설정
+        }
+    
+    }
 
 
     public void StopButtonClicked()
@@ -96,16 +113,6 @@ public class ButtonManager : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     //Help!!! + NextZone!!
     public TextMeshProUGUI HelpText;
     public bool isHelpButton = false;
-
-    private void Start()
-    {
-        NB = 0;
-
-        //if (!isHelpButton) return;
-
-         SetQuestion(NB);
-        
-    }
 
     private string[] problems = {
         "1. python 1",
