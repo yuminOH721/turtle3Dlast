@@ -48,11 +48,11 @@ public class ButtonManager : MonoBehaviour
 
     public void RunButtonClicked()
     {
-        if (lastClickedButton == "Run")
-        {
-            Debug.Log("Run 버튼 연속 클릭 방지됨");
-            return;
-        }
+        // if (lastClickedButton == "Run")
+        // {
+        //     Debug.Log("Run 버튼 연속 클릭 방지됨");
+        //     return;
+        // }
 
         lastClickedButton = "Run";
 
