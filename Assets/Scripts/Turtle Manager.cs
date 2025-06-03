@@ -27,7 +27,7 @@ public class TurtleManager : MonoBehaviour
 
     private readonly List<GameObject> turtlePool = new();
     private readonly Dictionary<string, Turtle3D> namedTurtles = new();
-    private readonly Dictionary<string, Vector3> variables = new();
+    private readonly Dictionary<string, object> variables = new();
     private readonly Queue<Command> commandQueue = new Queue<Command>();
 
     private bool isProcessing;
@@ -139,18 +139,161 @@ public class TurtleManager : MonoBehaviour
         int indent = cmd.Indent;
         string lower = raw.ToLowerInvariant();
 
-        // 1) normalized 검사
-        string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
-
-        // print("...")
-        if (normalized.StartsWith("print(") && normalized.EndsWith(")"))
+        // ────────────────────────────────────────────────────────────────────────────
+        // 0) “거북이 생성” 구문 처리: a = Turtle()
+        var turtleMatch = Regex.Match(lower, @"^([a-zA-Z_]\w*)\s*=\s*turtle\(\)\s*$");
+        if (turtleMatch.Success)
         {
-            string content = raw.Substring(raw.IndexOf('(') + 1,
-                                           raw.LastIndexOf(')') - raw.IndexOf('(') - 1);
-            terminalText.text = content;
-            Debug.Log($"[print] {content}");
+            string varName = turtleMatch.Groups[1].Value;
+            GameObject go = GetTurtleFromPool();
+            if (go != null)
+            {
+                go.SetActive(true);
+                var t = go.GetComponent<Turtle3D>();
+                t.Initialize(varName, spawnPosition, spawnRotation);
+                namedTurtles[varName] = t;
+                t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
+            }
+            else
+            {
+                PrintError("[TurtleManager] 풀에 남은 거북이 없음.");
+            }
             yield break;
         }
+
+        // ────────────────────────────────────────────────────────────────────────────
+        // 1) “변수 대입” 구문 처리 (각종 리터럴 및 기존 변수 복사)
+        var assignMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)\s*=\s*(.+)$");
+        if (assignMatch.Success)
+        {
+            string varName = assignMatch.Groups[1].Value;
+            string rhsText = assignMatch.Groups[2].Value;
+
+            object value = null;
+            string trimmed = rhsText.Trim();
+
+            // -- 문자열 리터럴 "…"
+            if (trimmed.Length >= 2 && trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+            {
+                value = trimmed.Substring(1, trimmed.Length - 2);
+            }
+            // -- char 리터럴 'x'
+            else if (trimmed.Length >= 3 && trimmed.StartsWith("'") && trimmed.EndsWith("'"))
+            {
+                string inner = trimmed.Substring(1, trimmed.Length - 2);
+                if (inner.Length == 1)
+                    value = inner[0];
+                else
+                    value = inner;
+            }
+            // -- 불리언 리터럴 true/false
+            else if (trimmed.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                     trimmed.Equals("false", StringComparison.OrdinalIgnoreCase))
+            {
+                value = trimmed.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            // -- 실수 리터럴 (소수점 포함)
+            else if (float.TryParse(trimmed.TrimEnd('f', 'F'),
+                                    NumberStyles.Float | NumberStyles.AllowThousands,
+                                    CultureInfo.InvariantCulture,
+                                    out float fVal))
+            {
+                if (trimmed.EndsWith("f", StringComparison.OrdinalIgnoreCase))
+                    value = fVal;
+                else
+                    value = (double)fVal;
+            }
+            // -- 정수 리터럴
+            else if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iVal))
+            {
+                value = iVal;
+            }
+            // -- 기존에 저장된 변수 복사
+            else if (variables.TryGetValue(trimmed, out object existing))
+            {
+                value = existing;
+            }
+            else
+            {
+                PrintError($"[TurtleManager] 대입 실패: '{trimmed}'를 파싱할 수 없음");
+                yield break;
+            }
+
+            variables[varName] = value;
+            Debug.Log($"[변수 저장] {varName} = ({value} : {value.GetType().Name})");
+            yield break;
+        }
+        // ────────────────────────────────────────────────────────────────────────────
+
+        // 2) normalized 생성
+        string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
+
+        // ────────────────────────────────────────────────────────────────────────────
+        // print(...) 문법 검사: 반드시 print( ... ) 형태여야 함
+        if (lower.StartsWith("print"))
+        {
+            // 올바른 구문: print( ... )
+            var printSyntaxMatch = Regex.Match(normalized, @"^print\(.+\)$");
+            if (!printSyntaxMatch.Success)
+            {
+                PrintError("[TurtleManager] print 문법 오류");
+                yield break;
+            }
+
+            // 괄호 안 전체 내용 추출
+            string inside = raw.Substring(raw.IndexOf('(') + 1,
+                                          raw.LastIndexOf(')') - raw.IndexOf('(') - 1);
+
+            // 호출된 print 로직: 여러 인수와 표현식 평가 지원
+            string[] parts = inside.Split(',');
+            List<string> evaluated = new List<string>();
+            foreach (var part in parts)
+            {
+                string expr = part.Trim();
+                string resultStr;
+
+                // 문자열 리터럴
+                if (expr.Length >= 2 && expr.StartsWith("\"") && expr.EndsWith("\""))
+                {
+                    resultStr = expr.Substring(1, expr.Length - 2);
+                }
+                else if (expr.Length >= 2 && expr.StartsWith("'") && expr.EndsWith("'"))
+                {
+                    string inner = expr.Substring(1, expr.Length - 2);
+                    resultStr = inner;
+                }
+                // 변수 참조
+                else if (variables.TryGetValue(expr, out object objVal))
+                {
+                    resultStr = objVal.ToString();
+                }
+                // 불리언 리터럴
+                else if (expr.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                         expr.Equals("false", StringComparison.OrdinalIgnoreCase))
+                {
+                    resultStr = expr.ToLower();
+                }
+                // 숫자 표현식 (TryParseExpression으로 수식 평가)
+                else if (TryParseExpression(expr, out float numVal))
+                {
+                    resultStr = numVal.ToString(CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    // 알 수 없는 표현식은 그대로 출력
+                    resultStr = expr;
+                }
+
+                evaluated.Add(resultStr);
+            }
+
+            // 공백 한 칸으로 이어붙여 출력
+            string finalOutput = string.Join(" ", evaluated);
+            terminalText.text = finalOutput;
+            Debug.Log($"[print] {finalOutput}");
+            yield break;
+        }
+        // ────────────────────────────────────────────────────────────────────────────
 
         // for i in range(n):
         if (Regex.IsMatch(normalized, @"^for [a-zA-Z_]\w* in range\(\d+\):$"))
@@ -176,23 +319,17 @@ public class TurtleManager : MonoBehaviour
         // if condition:
         if (Regex.IsMatch(normalized, @"^if .+:$"))
         {
-            // 조건식 추출
             string condition = raw
                 .Substring(raw.IndexOf("if", StringComparison.Ordinal) + 2)
                 .TrimEnd(':')
                 .Trim();
 
-            // 블록 모두 꺼내서
             var bodyCmds = DequeueBlock(indent);
-
-            // 조건이 false면 그냥 버리고
             if (!EvaluateCondition(condition))
                 yield break;
 
-            // true면 다시 enqueue
             foreach (var c in bodyCmds)
                 commandQueue.Enqueue(c);
-
             yield break;
         }
 
@@ -390,15 +527,18 @@ public class TurtleManager : MonoBehaviour
             int start = idx + prefix.Length;
             int end = raw.LastIndexOf(')');
             var rgb = raw.Substring(start, end - start).Split(',');
-            if (namedTurtles.TryGetValue(name, out var t) && rgb.Length == 3
+            if (namedTurtles.TryGetValue(name, out var t)
                 && float.TryParse(rgb[0], out float r)
                 && float.TryParse(rgb[1], out float g)
                 && float.TryParse(rgb[2], out float b))
             {
                 t.GetComponentInChildren<TurtleDrawer>().SetPenColor(new Color(r, g, b));
             }
-            else PrintError($"[TurtleManager] pencolor 파싱 실패: {raw}");
+            else
+                PrintError($"[TurtleManager] pencolor 파싱 실패: {raw}");
+            yield break;
         }
+
         // 7) pensize(n)
         else if (lower.Contains(".pensize(") && raw.EndsWith(")"))
         {
@@ -445,19 +585,137 @@ public class TurtleManager : MonoBehaviour
     private bool TryParseExpression(string s, out float result)
     {
         s = s.Trim();
-        var mul = s.Split('*');
-        if (mul.Length == 2 && TryParseExpression(mul[0], out var l) && TryParseExpression(mul[1], out var r))
+
+        // 1) “+” 또는 “-” 처리 (뎁스 0에서, 앞부분이 음수 부호인지 아닌지 고려)
+        int depth = 0;
+        for (int i = s.Length - 1; i >= 0; i--)
         {
-            result = l * r; return true;
+            char c = s[i];
+            if (c == ')') depth++;
+            else if (c == '(') depth--;
+            else if (depth == 0 && (c == '+' || c == '-'))
+            {
+                // 맨 앞에 있으면 부호일 뿐 연산자가 아니므로 건너뜀
+                if (i == 0)
+                    continue;
+                char prev = s[i - 1];
+                // 앞 문자가 연산자거나 ‘(’이면 부호로 간주하고 건너뜀
+                if (prev == '(' || prev == '+' || prev == '-' || prev == '*' || prev == '/' || prev == '%')
+                    continue;
+
+                // “왼쪽”과 “오른쪽”을 재귀로 파싱
+                string left = s.Substring(0, i);
+                string right = s.Substring(i + 1);
+                if (TryParseExpression(left, out float leftVal) &&
+                    TryParseExpression(right, out float rightVal))
+                {
+                    result = (c == '+') ? leftVal + rightVal : leftVal - rightVal;
+                    return true;
+                }
+
+                result = 0f;
+                return false;
+            }
         }
-        if (s.EndsWith("f", StringComparison.OrdinalIgnoreCase)) s = s[..^1];
-        var m = Regex.Match(s, @"^sqrt\((.+)\)$", RegexOptions.IgnoreCase);
-        if (m.Success && TryParseExpression(m.Groups[1].Value, out var inner))
+
+        // 2) “*”, “/”, “%” 처리 (뎁스 0)
+        depth = 0;
+        for (int i = s.Length - 1; i >= 0; i--)
         {
-            result = Mathf.Sqrt(inner); return true;
+            char c = s[i];
+            if (c == ')') depth++;
+            else if (c == '(') depth--;
+            else if (depth == 0 && (c == '*' || c == '/' || c == '%'))
+            {
+                string left = s.Substring(0, i);
+                string right = s.Substring(i + 1);
+                if (TryParseExpression(left, out float leftVal) &&
+                    TryParseExpression(right, out float rightVal))
+                {
+                    switch (c)
+                    {
+                        case '*':
+                            result = leftVal * rightVal;
+                            return true;
+                        case '/':
+                            if (rightVal == 0f)
+                            {
+                                // 0으로 나누면 실패로 처리
+                                result = 0f;
+                                return false;
+                            }
+                            result = leftVal / rightVal;
+                            return true;
+                        case '%':
+                            if (rightVal == 0f)
+                            {
+                                result = 0f;
+                                return false;
+                            }
+                            result = leftVal % rightVal;
+                            return true;
+                    }
+                }
+
+                result = 0f;
+                return false;
+            }
         }
-        return float.TryParse(s, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out result);
+
+        // 3) sqrt(...) 함수 지원
+        var sqrtMatch = Regex.Match(s, @"^\s*sqrt\((.+)\)\s*$", RegexOptions.IgnoreCase);
+        if (sqrtMatch.Success)
+        {
+            string inner = sqrtMatch.Groups[1].Value;
+            if (TryParseExpression(inner, out float innerVal))
+            {
+                result = Mathf.Sqrt(innerVal);
+                return true;
+            }
+            result = 0f;
+            return false;
+        }
+
+        // 4) 변수 참조: 변수 딕셔너리에서 숫자형(int, float, double) 꺼내기
+        if (variables.TryGetValue(s, out object varObj))
+        {
+            switch (varObj)
+            {
+                case int iVal: result = iVal; return true;
+                case float fVal: result = fVal; return true;
+                case double dVal: result = (float)dVal; return true;
+            }
+        }
+
+        // 5) 접미사 f/F가 붙은 실수 리터럴
+        if (s.EndsWith("f", StringComparison.OrdinalIgnoreCase))
+        {
+            string numericPart = s.Substring(0, s.Length - 1).Trim();
+            if (float.TryParse(numericPart,
+                               NumberStyles.Float | NumberStyles.AllowThousands,
+                               CultureInfo.InvariantCulture,
+                               out float fLiteral))
+            {
+                result = fLiteral;
+                return true;
+            }
+        }
+
+        // 6) 일반 실수/정수 리터럴
+        if (float.TryParse(s,
+                           NumberStyles.Float | NumberStyles.AllowThousands,
+                           CultureInfo.InvariantCulture,
+                           out float fVal2))
+        {
+            result = fVal2;
+            return true;
+        }
+
+        // 7) 모두 해당하지 않으면 실패
+        result = 0f;
+        return false;
     }
+
 
     private GameObject GetTurtleFromPool()
     {
@@ -467,28 +725,28 @@ public class TurtleManager : MonoBehaviour
     }
 
     public void ResetAllTurtles()
-{
-    foreach (var go in turtlePool)
     {
-        go.SetActive(false);
-        go.transform.SetParent(gridParent, false);
-        go.transform.localPosition = spawnPosition;
-        go.transform.localRotation = spawnRotation;
-        go.transform.localScale = turtleScale;
-
-        var drawer = go.GetComponentInChildren<TurtleDrawer>();
-        if (drawer != null)
+        foreach (var go in turtlePool)
         {
-            drawer.ClearAllTrails();     
-            drawer.StartDrawing();      
+            go.SetActive(false);
+            go.transform.SetParent(gridParent, false);
+            go.transform.localPosition = spawnPosition;
+            go.transform.localRotation = spawnRotation;
+            go.transform.localScale = turtleScale;
+
+            var drawer = go.GetComponentInChildren<TurtleDrawer>();
+            if (drawer != null)
+            {
+                drawer.ClearAllTrails();
+                drawer.StartDrawing();
+            }
         }
+        namedTurtles.Clear();
+        variables.Clear();
+        commandQueue.Clear();
+        isProcessing = false;
+        PrintError("[TurtleManager] 완전 초기화");
     }
-    namedTurtles.Clear();
-    variables.Clear();
-    commandQueue.Clear();
-    isProcessing = false;
-    PrintError("[TurtleManager] 완전 초기화");
-}
 
     public float CellSize
     {
@@ -503,17 +761,28 @@ public class TurtleManager : MonoBehaviour
     {
         condition = condition.Trim();
 
-        // 숫자면 0이 아닌 경우 true
-        if (float.TryParse(condition, out float result))
-            return result != 0;
+        // 1) Boolean 리터럴
+        if (condition.Equals("true", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (condition.Equals("false", StringComparison.OrdinalIgnoreCase))
+            return false;
 
-        // 변수 값이 있다면 x != 0 이면 true
-        if (variables.TryGetValue(condition, out var val))
-            return val.x != 0;
+        // 2) 숫자 (기존 로직)
+        if (float.TryParse(condition, out float num))
+            return num != 0;
 
-        // 그 외는 false
+        // 3) 변수 값 검사
+        if (variables.TryGetValue(condition, out var obj))
+        {
+            if (obj is bool b) return b;
+            if (obj is float f) return f != 0;
+            if (obj is Vector3 v) return v.x != 0; // 기존 방식
+            if (obj is string s) return !string.IsNullOrEmpty(s);
+        }
+
         return false;
     }
+
 
     private List<Command> DequeueBlock(int parentIndent)
     {
