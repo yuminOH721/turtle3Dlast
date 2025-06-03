@@ -35,6 +35,21 @@ public class TurtleManager : MonoBehaviour
     public static TurtleManager instance;
     private BoxCollider gridCollider;
 
+    private static readonly Dictionary<string, Color> ColorNameMap = new()
+{
+    { "red",    Color.red },
+    { "green",  Color.green },
+    { "blue",   Color.blue },
+    { "yellow", Color.yellow },
+    { "black",  Color.black },
+    { "white",  Color.white },
+    { "gray",   Color.gray },
+    { "cyan",   Color.cyan },
+    { "magenta",Color.magenta },
+    { "orange", Color.Lerp(Color.red, Color.yellow, 0.5f) },
+
+};
+
     void Awake()
     {
         if (instance == null) instance = this;
@@ -92,6 +107,7 @@ public class TurtleManager : MonoBehaviour
 
     public void ExecuteCurrentCommand()
     {
+        ResetAllTurtles();
         var lines = commandInput.text.Split('\n');
         foreach (var line in lines)
         {
@@ -126,7 +142,6 @@ public class TurtleManager : MonoBehaviour
         string raw = cmd.Raw;
         string lower = raw.ToLowerInvariant();
 
-
         yield return StartCoroutine(DispatchCommand(cmd));
 
         yield return new WaitForSeconds(stepDelay);
@@ -138,6 +153,7 @@ public class TurtleManager : MonoBehaviour
         string raw = cmd.Raw;
         int indent = cmd.Indent;
         string lower = raw.ToLowerInvariant();
+        string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
 
         // ────────────────────────────────────────────────────────────────────────────
         // 0) “거북이 생성” 구문 처리: a = Turtle()
@@ -162,6 +178,7 @@ public class TurtleManager : MonoBehaviour
         }
 
         // ────────────────────────────────────────────────────────────────────────────
+
         // 1) “변수 대입” 구문 처리 (각종 리터럴 및 기존 변수 복사)
         var assignMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)\s*=\s*(.+)$");
         if (assignMatch.Success)
@@ -225,10 +242,6 @@ public class TurtleManager : MonoBehaviour
         }
         // ────────────────────────────────────────────────────────────────────────────
 
-        // 2) normalized 생성
-        string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
-
-        // ────────────────────────────────────────────────────────────────────────────
         // print(...) 문법 검사: 반드시 print( ... ) 형태여야 함
         if (lower.StartsWith("print"))
         {
@@ -317,19 +330,83 @@ public class TurtleManager : MonoBehaviour
         }
 
         // if condition:
-        if (Regex.IsMatch(normalized, @"^if .+:$"))
+        if (normalized.StartsWith("if ") && normalized.EndsWith(":")
+            || normalized.StartsWith("elif ") && normalized.EndsWith(":")
+            || normalized.Equals("else:"))
         {
-            string condition = raw
-                .Substring(raw.IndexOf("if", StringComparison.Ordinal) + 2)
-                .TrimEnd(':')
-                .Trim();
+            var blockLines = new List<Command>();
+            blockLines.Add(cmd);
 
-            var bodyCmds = DequeueBlock(indent);
-            if (!EvaluateCondition(condition))
-                yield break;
+            // 같은 indent 수준의 연속된 if/elif/else 줄을 모은다.
+            while (commandQueue.Count > 0 &&
+                   commandQueue.Peek().Indent == indent)
+            {
+                string nextRaw = commandQueue.Peek().Raw;
+                string nextNorm = Regex.Replace(nextRaw, @"\s+", " ").Trim().ToLowerInvariant();
+                if ((nextNorm.StartsWith("elif ") && nextNorm.EndsWith(":"))
+                    || nextNorm.Equals("else:"))
+                {
+                    blockLines.Add(commandQueue.Dequeue());
+                }
+                else break;
+            }
 
-            foreach (var c in bodyCmds)
-                commandQueue.Enqueue(c);
+            bool branchTaken = false;
+            // “각 분기”마다 몸통을 미리 모두 DequeueBlock으로 꺼내어 보관
+            var allBodies = new List<List<Command>>();
+            foreach (var branch in blockLines)
+            {
+                // indent보다 큰 들여쓰기(=한 단계 더 들여쓴) 명령들을 모은다.
+                var body = DequeueBlock(indent);
+                allBodies.Add(body);
+            }
+
+            // 이제 순서대로 “조건 검사 → 몸통 enqueue” 또는 “버리기” 결정
+            for (int i = 0; i < blockLines.Count; i++)
+            {
+                string branchRaw = blockLines[i].Raw;
+                string branchNorm = Regex.Replace(branchRaw, @"\s+", " ").Trim().ToLowerInvariant();
+
+                if (branchNorm.StartsWith("if "))
+                {
+                    string cond = branchRaw
+                        .Substring(branchRaw.IndexOf("if", StringComparison.Ordinal) + 2)
+                        .TrimEnd(':').Trim();
+                    if (EvaluateCondition(cond))
+                    {
+                        // 참이면 해당 몸통만 enqueue
+                        foreach (var c in allBodies[i])
+                            commandQueue.Enqueue(c);
+                        branchTaken = true;
+                        break;
+                    }
+                }
+                else if (branchNorm.StartsWith("elif "))
+                {
+                    if (branchTaken) break;
+                    string cond = branchRaw
+                        .Substring(branchRaw.IndexOf("elif", StringComparison.Ordinal) + 4)
+                        .TrimEnd(':').Trim();
+                    if (EvaluateCondition(cond))
+                    {
+                        foreach (var c in allBodies[i])
+                            commandQueue.Enqueue(c);
+                        branchTaken = true;
+                        break;
+                    }
+                }
+                else if (branchNorm.Equals("else:"))
+                {
+                    if (branchTaken) break;
+                    foreach (var c in allBodies[i])
+                        commandQueue.Enqueue(c);
+                    branchTaken = true;
+                    break;
+                }
+            }
+
+            // 만약 참인 분기가 하나도 없었다면(=branchTaken false), 
+            // 모두 버렸으므로 아무것도 enqueue되지 않는다.
             yield break;
         }
 
@@ -372,7 +449,6 @@ public class TurtleManager : MonoBehaviour
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
     }
-
 
     private IEnumerator HandleBuiltinCommands(string raw, string lower)
     {
@@ -522,20 +598,55 @@ public class TurtleManager : MonoBehaviour
         else if (lower.Contains(".pencolor(") && raw.EndsWith(")"))
         {
             const string prefix = ".pencolor(";
-            var idx = lower.IndexOf(prefix, StringComparison.Ordinal);
-            var name = raw.Substring(0, idx);
+            int idx = lower.IndexOf(prefix, StringComparison.Ordinal);
+            string name = raw.Substring(0, idx).Trim();
             int start = idx + prefix.Length;
             int end = raw.LastIndexOf(')');
-            var rgb = raw.Substring(start, end - start).Split(',');
-            if (namedTurtles.TryGetValue(name, out var t)
-                && float.TryParse(rgb[0], out float r)
-                && float.TryParse(rgb[1], out float g)
-                && float.TryParse(rgb[2], out float b))
+            string argsText = raw.Substring(start, end - start).Trim();
+
+            // 쉼표로 나눠 봤을 때 숫자가 3개면 기존 방식으로 R,G,B 파싱
+            string[] parts = argsText.Split(',');
+            if (parts.Length == 3
+                && float.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float rVal)
+                && float.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float gVal)
+                && float.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float bVal))
             {
-                t.GetComponentInChildren<TurtleDrawer>().SetPenColor(new Color(r, g, b));
+                if (namedTurtles.TryGetValue(name, out Turtle3D t))
+                {
+                    t.GetComponentInChildren<TurtleDrawer>().SetPenColor(new Color(rVal, gVal, bVal));
+                }
+                else
+                {
+                    PrintError($"[TurtleManager] pencolor 실패: 거북이 '{name}' 없음.");
+                }
+                yield break;
+            }
+
+            // 숫자 세 개가 아니라면, “색상 이름”으로 해석 시도
+            // 예: argsText == "red" 또는 "\"blue\"" 처럼 따옴표가 붙어 있을 수도 있으니 제거
+            string colorKey = argsText.Trim();
+            if ((colorKey.StartsWith("\"") && colorKey.EndsWith("\"")) ||
+                (colorKey.StartsWith("'") && colorKey.EndsWith("'")))
+            {
+                colorKey = colorKey.Substring(1, colorKey.Length - 2).Trim();
+            }
+            colorKey = colorKey.ToLowerInvariant();
+
+            if (ColorNameMap.TryGetValue(colorKey, out Color namedColor))
+            {
+                if (namedTurtles.TryGetValue(name, out Turtle3D t2))
+                {
+                    t2.GetComponentInChildren<TurtleDrawer>().SetPenColor(namedColor);
+                }
+                else
+                {
+                    PrintError($"[TurtleManager] pencolor 실패: 거북이 '{name}' 없음.");
+                }
             }
             else
-                PrintError($"[TurtleManager] pencolor 파싱 실패: {raw}");
+            {
+                PrintError($"[TurtleManager] pencolor 파싱 실패: 색상 '{argsText}'을(를) 인식할 수 없음");
+            }
             yield break;
         }
 
@@ -580,7 +691,6 @@ public class TurtleManager : MonoBehaviour
             PrintError($"[TurtleManager] 명령 해석 실패: {raw}");
         }
     }
-
 
     private bool TryParseExpression(string s, out float result)
     {
@@ -716,7 +826,6 @@ public class TurtleManager : MonoBehaviour
         return false;
     }
 
-
     private GameObject GetTurtleFromPool()
     {
         foreach (var go in turtlePool)
@@ -760,29 +869,54 @@ public class TurtleManager : MonoBehaviour
     private bool EvaluateCondition(string condition)
     {
         condition = condition.Trim();
+        var cmpMatch = Regex.Match(condition, @"^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$");
+        if (cmpMatch.Success)
+        {
+            string leftExpr = cmpMatch.Groups[1].Value.Trim();
+            string op = cmpMatch.Groups[2].Value;
+            string rightExpr = cmpMatch.Groups[3].Value.Trim();
+
+            // 왼쪽/오른쪽 식을 TryParseExpression으로 계산 시도
+            if (TryParseExpression(leftExpr, out float leftVal)
+             && TryParseExpression(rightExpr, out float rightVal))
+            {
+                switch (op)
+                {
+                    case "==": return leftVal == rightVal;
+                    case "!=": return leftVal != rightVal;
+                    case "<": return leftVal < rightVal;
+                    case "<=": return leftVal <= rightVal;
+                    case ">": return leftVal > rightVal;
+                    case ">=": return leftVal >= rightVal;
+                }
+            }
+            // 숫자 연산이 안 되면 “false” 처리
+            return false;
+        }
 
         // 1) Boolean 리터럴
-        if (condition.Equals("true", StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (condition.Equals("false", StringComparison.OrdinalIgnoreCase))
-            return false;
+        if (condition.Equals("true", StringComparison.OrdinalIgnoreCase)) return true;
+        if (condition.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
 
-        // 2) 숫자 (기존 로직)
-        if (float.TryParse(condition, out float num))
-            return num != 0;
+        // 2) 숫자 리터럴 (TryParse로 바로 판단)
+        if (float.TryParse(condition, out float num)) return num != 0;
 
         // 3) 변수 값 검사
         if (variables.TryGetValue(condition, out var obj))
         {
-            if (obj is bool b) return b;
-            if (obj is float f) return f != 0;
-            if (obj is Vector3 v) return v.x != 0; // 기존 방식
-            if (obj is string s) return !string.IsNullOrEmpty(s);
+            switch (obj)
+            {
+                case bool b: return b;
+                case int i: return i != 0;
+                case float f: return f != 0;
+                case double d: return d != 0;
+                case Vector3 v: return v.x != 0;    // 기존 로직 유지
+                case string s: return !string.IsNullOrEmpty(s);
+            }
         }
 
         return false;
     }
-
 
     private List<Command> DequeueBlock(int parentIndent)
     {
@@ -792,7 +926,6 @@ public class TurtleManager : MonoBehaviour
         return block;
     }
 }
-
 
 class Command
 {
@@ -805,4 +938,3 @@ class Command
 
 
 }
-
