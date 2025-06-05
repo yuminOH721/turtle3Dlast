@@ -14,7 +14,7 @@ public class TurtleManager : MonoBehaviour
 {
     [Header("Grid Parent for Turtles")] public Transform gridParent;
     [Header("Prefabs & UI")] public GameObject turtlePrefab;
-    public TMP_InputField commandInput;
+    public TMP_Text commandInput;
     [Header("Spawn Settings")] public int maxTurtles = 5;
     public static Vector3 spawnPosition = Vector3.zero;
     public static readonly Quaternion spawnRotation = Quaternion.identity;
