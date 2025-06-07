@@ -4084,7 +4084,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &781942576
 Transform:
   m_ObjectHideFlags: 0
@@ -4798,12 +4798,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridParent: {fileID: 961819085}
   turtlePrefab: {fileID: 8522709082990672822, guid: b5b8556cad7914044a23b5c0ec34d6f1, type: 3}
-  commandInput: {fileID: 2031176831}
   maxTurtles: 1
   turtleScale: {x: 0.3, y: 0.3, z: 0.3}
   movementScale: 0.2
   stepDelay: 0.5
   terminalText: {fileID: 1084265376}
+  commandInput: {fileID: 1747096646}
+  userInputField: {fileID: 0}
   minPenSize: 0.01
   maxPenSize: 0.1
 --- !u!1 &927082693

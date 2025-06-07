@@ -13,15 +13,19 @@ using TMPro;
 public class TurtleManager : MonoBehaviour
 {
     [Header("Grid Parent for Turtles")] public Transform gridParent;
-    [Header("Prefabs & UI")] public GameObject turtlePrefab;
-    public TMP_InputField commandInput;
+    [Header("Prefabs")] public GameObject turtlePrefab;
+
     [Header("Spawn Settings")] public int maxTurtles = 5;
     public static Vector3 spawnPosition = Vector3.zero;
     public static readonly Quaternion spawnRotation = Quaternion.identity;
     [Header("Turtle Appearance")] public Vector3 turtleScale = Vector3.one;
     [Header("Movement Settings")] public float movementScale = 1f;
     [Header("Timing")][SerializeField] private float stepDelay = 0.5f;
-    [Header("UI")] public TMP_Text terminalText;
+    [Header("UI")]
+    public TMP_Text terminalText;
+    public TMP_Text commandInput;
+    public TMP_InputField userInputField;
+
     [Header("Pen Settings")] public float minPenSize = 0.01f;
     public float maxPenSize = 0.1f;
 
@@ -133,7 +137,11 @@ public class TurtleManager : MonoBehaviour
     void PrintError(string msg)
     {
         Debug.LogError(msg);
-        if (terminalText != null) terminalText.text = msg;
+        if (terminalText != null) terminalText.text = msg + "\n";
+
+        StopAllCoroutines();
+        isProcessing = false;
+        userInputField.gameObject.SetActive(false);
     }
 
     private IEnumerator ProcessCommand(Command cmd)
@@ -302,7 +310,7 @@ public class TurtleManager : MonoBehaviour
 
             // 공백 한 칸으로 이어붙여 출력
             string finalOutput = string.Join(" ", evaluated);
-            terminalText.text = finalOutput;
+            terminalText.text = finalOutput + "\n";
             Debug.Log($"[print] {finalOutput}");
             yield break;
         }
@@ -445,6 +453,23 @@ public class TurtleManager : MonoBehaviour
 
             yield break;
         }
+        // ────────────────────────────────────────────────────────────────────────────
+        // input() 처리: 예) name = input("Your name?")
+        var inputMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)\s*=\s*input\((.*)\)$");
+        if (inputMatch.Success)
+        {
+            string varName = inputMatch.Groups[1].Value;
+            string prompt = inputMatch.Groups[2].Value.Trim();
+
+            // 따옴표 제거
+            if ((prompt.StartsWith("\"") && prompt.EndsWith("\"")) || (prompt.StartsWith("'") && prompt.EndsWith("'")))
+                prompt = prompt.Substring(1, prompt.Length - 2);
+
+            // 사용자 입력 받기
+            yield return StartCoroutine(WaitForUserInput(prompt, varName));
+            yield break;
+        }
+
 
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
@@ -518,7 +543,7 @@ public class TurtleManager : MonoBehaviour
             Vector3 size = gridCollider.size;
             Vector3 halfSize = size * 0.5f;
 
-            float epsilon = 1e-4f;  // 허용 오차
+            float epsilon = 1e-3f;  // 허용 오차
             bool insideX = localTarget.x >= (center.x - halfSize.x - epsilon) && localTarget.x <= (center.x + halfSize.x + epsilon);
             bool insideY = localTarget.y >= (center.y - halfSize.y - epsilon) && localTarget.y <= (center.y + halfSize.y + epsilon);
             bool insideZ = localTarget.z >= (center.z - halfSize.z - epsilon) && localTarget.z <= (center.z + halfSize.z + epsilon);
@@ -854,7 +879,11 @@ public class TurtleManager : MonoBehaviour
         variables.Clear();
         commandQueue.Clear();
         isProcessing = false;
-        PrintError("[TurtleManager] 완전 초기화");
+        Debug.Log("[TurtleManager] 완전 초기화");
+
+        if (terminalText != null)
+            terminalText.text = "";
+
     }
 
     public float CellSize
@@ -925,6 +954,32 @@ public class TurtleManager : MonoBehaviour
             block.Add(commandQueue.Dequeue());
         return block;
     }
+
+    private IEnumerator WaitForUserInput(string prompt, string varName)
+    {
+        terminalText.text = prompt;
+
+        userInputField.gameObject.SetActive(true);
+        userInputField.text = "";
+        userInputField.ActivateInputField();
+
+        bool inputDone = false;
+        string userInput = "";
+
+        userInputField.onSubmit.RemoveAllListeners();
+        userInputField.onSubmit.AddListener((string text) =>
+        {
+            userInput = text;
+            inputDone = true;
+        });
+
+        while (!inputDone)
+            yield return null;
+
+        userInputField.gameObject.SetActive(false);
+        variables[varName] = userInput;
+    }
+
 }
 
 class Command
