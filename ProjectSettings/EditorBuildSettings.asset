@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/GateScene.unity
     guid: 829bf6d949eb48746ac0dda29a5bee6d
+  - enabled: 1
+    path: Assets/Scenes/TutorialScene.unity
+    guid: 14a4fe04dbfa8e54eb170707df1dc7ea
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 75a4c3facafc32847b4992219edfc1f1, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 9835b49e16a64b34cae0d2cfe26c0881, type: 2}
