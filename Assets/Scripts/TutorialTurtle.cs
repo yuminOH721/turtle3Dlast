@@ -8,9 +8,9 @@ using TMPro;
 public class TutorialTurtle : MonoBehaviour
 {
     [Header("거북이와 말풍선")]
-    public GameObject turtle;                 // 거북이 프리팹
-    public GameObject speechCanvas;           // 말풍선 전체 Canvas
-    public TextMeshProUGUI speechText;        // 말풍선 안 텍스트
+    public GameObject turtle;
+    public GameObject speechCanvas;
+    public TextMeshProUGUI speechText;
 
     [Header("설정")]
     public float speed = 2.5f;
@@ -25,71 +25,86 @@ public class TutorialTurtle : MonoBehaviour
 
     private int currentSpeechIndex = 0;
     private bool isTurtleClickable = false;
+    private bool isMoving = false;
 
     private void Start()
     {
         turtle.SetActive(false);
-        StartCoroutine(StartTutorial());
+        StartCoroutine(InitTutorial());
+    }
+
+    IEnumerator InitTutorial()
+    {
+        yield return new WaitForSeconds(3f);
+        turtle.SetActive(true);
+        ShowSpeech(speechList[currentSpeechIndex]);
+        isTurtleClickable = true;
     }
 
     private void Update()
     {
-        if (turtle.activeSelf)
-        {
-            //1. 거북이가 카메라 바라보게
-            turtle.transform.LookAt(Camera.main.transform);
-            //turtle.transform.Rotate(0, 180f, 0); // 모델이 반대일 경우
+        if (!turtle.activeSelf) return;
 
-           
-            //2. 말풍선이 사용자 쪽을 향하도록 회전
-            speechCanvas.transform.LookAt(Camera.main.transform);
-            speechCanvas.transform.Rotate(0, 180f, 0); // 텍스트가 반대일 경우
-        }
-    }
-
-    IEnumerator StartTutorial()
-    {
-        yield return new WaitForSeconds(3f);
-
-        turtle.SetActive(true);
-        ShowSpeech(speechList[0]);
-        yield return new WaitUntil(() => Input.GetMouseButtonDown(0));
-
-        ShowSpeech(speechList[1]);
-        yield return new WaitUntil(() => Input.GetMouseButtonDown(0));
-
-        ShowSpeech(speechList[2]);
-        yield return new WaitUntil(() => Input.GetMouseButtonDown(0));
-
-        // Window1 이동 및 설명
-        yield return StartCoroutine(MoveToTarget(window1Target, 3, 4));
-        // Window2 이동 및 설명
-        yield return StartCoroutine(MoveToTarget(window2Target, 7, 3));
-        // 키보드 이동 및 설명
-        yield return StartCoroutine(MoveToTarget(KeyBoardTarget, 10, 3));
-        // 큐브 이동 및 설명
-        yield return StartCoroutine(MoveToTarget(CubeTarget, 13, 5));
-        // Window3 이동 및 설명
-        yield return StartCoroutine(MoveToTarget(window3Target, 18, 11));
-
-        // 복귀 + 마무리 멘트 (임시: 거북이 위치로 되돌리거나 새 target 사용 가능)
-        yield return StartCoroutine(MoveToTarget(turtle.transform, 29, 4));
+        turtle.transform.LookAt(Camera.main.transform);
+        speechCanvas.transform.LookAt(Camera.main.transform);
+        speechCanvas.transform.Rotate(0, 180f, 0);
     }
 
     public void OnOkClicked()
     {
-        //ok버튼 클릭시 다음 말풍선 내용 나옴
-        if (!isTurtleClickable) return;
+        if (!isTurtleClickable || isMoving) return;
 
         currentSpeechIndex++;
-        if (currentSpeechIndex >= speechList.Count) return;
 
-        ShowSpeech(speechList[currentSpeechIndex]);
+        if (currentSpeechIndex >= speechList.Count)
+            return;
+
+
+        if (currentSpeechIndex == 3)
+            StartCoroutine(MoveToTarget(window1Target, 3, 4));
+        else if (currentSpeechIndex == 7)
+            StartCoroutine(MoveToTarget(window2Target, 7, 3));
+        else if (currentSpeechIndex == 10)
+            StartCoroutine(MoveToTarget(KeyBoardTarget, 10, 3));
+        else if (currentSpeechIndex == 13)
+            StartCoroutine(MoveToTarget(CubeTarget, 13, 5));
+        else if (currentSpeechIndex == 18)
+            StartCoroutine(MoveToTarget(window3Target, 18, 11));
+        else if (currentSpeechIndex == 29)
+            StartCoroutine(MoveToTarget(turtle.transform, 29, 4));
+        else
+            ShowSpeech(speechList[currentSpeechIndex]); // 그냥 다음 문장만 출력
+
+        /*switch (currentSpeechIndex)
+        {
+            case 3:
+                StartCoroutine(MoveToTarget(window1Target, 3, 4));
+                break;
+            case 7:
+                StartCoroutine(MoveToTarget(window2Target, 7, 3));
+                break;
+            case 10:
+                StartCoroutine(MoveToTarget(KeyBoardTarget, 10, 3));
+                break;
+            case 13:
+                StartCoroutine(MoveToTarget(CubeTarget, 13, 5));
+                break;
+            case 18:
+                StartCoroutine(MoveToTarget(window3Target, 18, 11));
+                break;
+            case 29:
+                StartCoroutine(MoveToTarget(turtle.transform, 29, 4));
+                break;
+            default:
+                ShowSpeech(speechList[currentSpeechIndex]);
+                break;
+        }*/
     }
 
     public IEnumerator MoveToTarget(Transform target, int speechStartIndex, int speechCount)
     {
         isTurtleClickable = false;
+        isMoving = true;
         flySound?.Play();
 
         while (Vector3.Distance(turtle.transform.position, target.position) > 0.1f)
@@ -102,16 +117,18 @@ public class TutorialTurtle : MonoBehaviour
 
         for (int i = 0; i < speechCount; i++)
         {
-            ShowSpeech(speechList[speechStartIndex + i]);
+            currentSpeechIndex = speechStartIndex + i;
+            ShowSpeech(speechList[currentSpeechIndex]);
             yield return new WaitUntil(() => Input.GetMouseButtonDown(0));
         }
 
         isTurtleClickable = true;
+        isMoving = false;
     }
 
     void ShowSpeech(string message)
     {
-        speechCanvas.SetActive(true);           // ✅ Canvas 전체를 켜기
+        speechCanvas.SetActive(true);
         speechText.text = message;
     }
 
