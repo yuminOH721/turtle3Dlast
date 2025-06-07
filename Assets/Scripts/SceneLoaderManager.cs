@@ -22,6 +22,11 @@ namespace SceneLoad.Managers
             Debug.Log($"Selected index: {selectedIndex}");
             SceneManager.LoadScene("SampleScene");  // MainScene으로 이동
         }
+        public void TutorialScene()
+        {
+            SceneManager.LoadScene("TutorialScene");
+        }
+
     }
 }
 
