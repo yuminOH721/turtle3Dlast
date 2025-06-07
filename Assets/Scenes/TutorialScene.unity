@@ -138,7 +138,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &24023059
 Transform:
   m_ObjectHideFlags: 0
@@ -1948,7 +1948,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Hi I'm Cute
+  m_text: Hi My name is CoBook
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2608e1dee755cac48930624b041e53cc, type: 2}
   m_sharedMaterial: {fileID: 1402942588391044354, guid: 2608e1dee755cac48930624b041e53cc, type: 2}
@@ -1957,8 +1957,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278190080
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1975,13 +1975,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 30
-  m_fontSizeBase: 30
+  m_fontSize: 20
+  m_fontSizeBase: 20
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -4765,6 +4765,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 566013048}
   m_CullTransparentMesh: 1
+--- !u!1 &566031261
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 566031262}
+  m_Layer: 0
+  m_Name: FrontTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &566031262
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566031261}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 2, z: 0.2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &572220365
 GameObject:
   m_ObjectHideFlags: 0
@@ -8093,7 +8124,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.392}
+  m_Color: {r: 0, g: 1, b: 0.13902664, a: 0.392}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -8996,11 +9027,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f321cb7f0c645cc4897714de2876b8e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  okButton: {fileID: 1879719493}
   turtle: {fileID: 42296012}
   speechCanvas: {fileID: 1209081398}
   speechText: {fileID: 228749570}
   speed: 2.5
   flySound: {fileID: 184397012}
+  FrontTarget: {fileID: 566031262}
   window1Target: {fileID: 1531097829}
   window2Target: {fileID: 1798498852}
   KeyBoardTarget: {fileID: 1971763953}
@@ -14606,6 +14639,7 @@ SceneRoots:
   - {fileID: 384177836}
   - {fileID: 1832531053}
   - {fileID: 1957776096}
+  - {fileID: 566031262}
   - {fileID: 673479304}
   - {fileID: 1338029013}
   - {fileID: 1879719497}
