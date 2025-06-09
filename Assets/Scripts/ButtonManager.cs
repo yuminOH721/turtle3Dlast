@@ -116,20 +116,20 @@ public class ButtonManager : MonoBehaviour
     public bool isHelpButton = false;
 
     private string[] problems = {
-        "1. python 1",
-        "2. 2D 1",
-        "3. python 2",
-        "4. 2D 2",
-        "5. python 3",
-        "6. 2D 3",
-        "7. 3D 1",
-        "8. 3D 2"
+        "no.1\n사각형을 그리세요.\n\nTurtle() : 거북이 캐릭터를 만든다.\nrotateX(각도) : X축으로 회전한다.\nrotateY(각도) : Y축으로 회전한다.\nforward(거리) : 바라보는 방향으로 이동한다.\nforward(3) : 큐브 한 칸 앞으로라는 뜻!",
+        "no.2\n사각형을 while 반복문을\n이용해서 구현하세요\n\n",
+        "no.3\n사각형을 for 반복문을\n이용해서 구현하세요\n\nTurtle() : 거북이를 만든다.\nrotateX(각도) : X축으로 회전한다.\nrotateY(각도) : Y축으로 회전한다.\nforward(거리) : 바라보는 방향으로 이동한다.\nfor i in range(n) : 코드를 n번 반복한다.",
+        "no.4\n2D 2",
+        "no.5\npython 3",
+        "no.6\n2D 3",
+        "no.7\n3D 1",
+        "no.8\n3D 2"
     };
 
     private string[][] allHints = {
-        new string[] { "hint 1-1", "hint 1-2" },
+        new string[] { "\"거북이는 오른쪽으로\n방향을 틀고 앞으로 이동했어.\n그러고 나서는 하늘로\n몸을 돌려서 위로 올라가더니,\n세 번을 더 회전하며\n사각형을 완성했지!\"", "\ra = ________()\r\na.________(90)\r\na.forward(3)\r\na.________(270)\r\na.forward(3)\r\na.________(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.________(3)" },
         new string[] { "hint 2-1", "hint 2-2" },
-        new string[] { "hint 3-1", "hint 3-2" },
+        new string[] { "\"거북이는 오른쪽으로\n방향을 틀고 이동했어.\r\n앞으로 나아가고 몸을 꺾기를 4회 진행했지!\r\n그렇게 사각형을 그리며 움직였어!\"", "\ra = Turtle()\r\na.rotateY(90)\r\nfor __ in ______(__):\r\n    a._______(_)\r\n    a.rotateX(270)" },
         new string[] { "hint 4-1", "hint 4-2" },
         new string[] { "hint 5-1", "hint 5-2" },
         new string[] { "hint 6-1", "hint 6-2" },
@@ -138,9 +138,9 @@ public class ButtonManager : MonoBehaviour
     };
 
     private string[] allAnswers = {
-        "Answer1",
+        "\ra = Turtle()\r\na.rotateY(90)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)",
         "Answer2",
-        "Answer3",
+        "\ra = Turtle()\r\na.rotateY(90)\r\nfor i in range(4):\r\n\ta.forward(3)\r\n\ta.rotateX(270)",
         "Answer4",
         "Answer5",
         "Answer6",
@@ -153,7 +153,7 @@ public class ButtonManager : MonoBehaviour
     private int currentQuestionIndex = 0;
     private string originalProblem = "";
 
-    public TMP_InputField AnswerText;  // 연결된 InputField
+    public TextMeshProUGUI AnswerText; // 연결된 InputField
     public bool isAnswerButton = false;
     private bool isShowingAnswer = false;// 🔥 상태 토글 변수
     private int AnswerCount = 0;

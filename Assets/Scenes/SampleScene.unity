@@ -2816,7 +2816,7 @@ MonoBehaviour:
   turtleManager: {fileID: 0}
   HelpText: {fileID: 0}
   isHelpButton: 0
-  AnswerText: {fileID: 2031176831}
+  AnswerText: {fileID: 1747096646}
   isAnswerButton: 1
 --- !u!114 &413505014
 MonoBehaviour:
@@ -4115,7 +4115,7 @@ MonoBehaviour:
   turtleManager: {fileID: 912185211}
   HelpText: {fileID: 1483869480}
   isHelpButton: 0
-  AnswerText: {fileID: 2031176831}
+  AnswerText: {fileID: 1747096646}
   isAnswerButton: 0
 --- !u!1 &782628375 stripped
 GameObject:
@@ -9393,8 +9393,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2608e1dee755cac48930624b041e53cc, type: 2}
+  m_sharedMaterial: {fileID: 1402942588391044354, guid: 2608e1dee755cac48930624b041e53cc, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -9418,14 +9418,14 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 18
+  m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 2
+  m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -9456,7 +9456,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: -41.919006, z: 0, w: 88.964355}
+  m_margin: {x: 7.076294, y: -41.919006, z: 0, w: 88.964355}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -11256,8 +11256,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 0.025
-  m_fontSizeBase: 0.025
+  m_fontSize: 0.018
+  m_fontSizeBase: 0.018
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
