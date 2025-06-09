@@ -153,7 +153,7 @@ public class ButtonManager : MonoBehaviour
     private int currentQuestionIndex = 0;
     private string originalProblem = "";
 
-    public TMP_InputField AnswerText; // 연결된 InputField
+    public TextMeshProUGUI AnswerText; // 연결된 InputField
     public bool isAnswerButton = false;
     private bool isShowingAnswer = false;// 🔥 상태 토글 변수
     private int AnswerCount = 0;
