@@ -160,7 +160,7 @@ public class TurtleManager : MonoBehaviour
             StartCoroutine(ProcessCommand(commandQueue.Dequeue()));
     }
 
-    void PrintError(string msg)
+    public void PrintError(string msg)
     {
         Debug.LogError(msg);
         if (terminalText != null) terminalText.text = msg + "\n";
@@ -406,14 +406,17 @@ public class TurtleManager : MonoBehaviour
                 yield break;
             }
 
-            string[] tokens = normalized
-                .Split(new[] { ' ', '(', ')', ':' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] tokens = normalized.Split(new[] { ' ', '(', ')', ':' }, StringSplitOptions.RemoveEmptyEntries);
             int count = int.Parse(tokens[4]);
 
             for (int i = 0; i < count; i++)
+            {
                 foreach (var c in bodyCmds)
-                    commandQueue.Enqueue(c);
-
+                {
+                    yield return StartCoroutine(DispatchCommand(c));  // 바로 실행!
+                    yield return new WaitForSeconds(stepDelay);
+                }
+            }
             yield break;
         }
 

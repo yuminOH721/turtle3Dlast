@@ -44,6 +44,13 @@ public class ButtonManager : MonoBehaviour
         lastClickedButton = "Stop";
 
         Debug.Log("Stop!"); //일시정지
+
+         if (turtleManager != null)
+            turtleManager.PrintError("Stop 버튼이 눌렸습니다");
+        else if (TurtleManager.instance != null)
+            TurtleManager.instance.PrintError("Stop 버튼이 눌렸습니다");
+        else
+            Debug.LogError("TurtleManager 인스턴스를 할당하세요.");
     }
 
     public void RunButtonClicked()
