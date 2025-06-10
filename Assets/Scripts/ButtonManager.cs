@@ -117,7 +117,7 @@ public class ButtonManager : MonoBehaviour
 
     private string[] problems = {
         "no.1\n사각형을 그리세요.\n\nTurtle() : 거북이 캐릭터를 만든다.\nrotateX(각도) : X축으로 회전한다.\nrotateY(각도) : Y축으로 회전한다.\nforward(거리) : 바라보는 방향으로 이동한다.\nforward(3) : 큐브 한 칸 앞으로라는 뜻!",
-        "no.2\n사각형을 while 반복문을\n이용해서 구현하세요\n\n",
+        "no.2\n사각형을 while 반복문을\n이용해서 구현하세요\n\nwhile 조건: : 조건이 참인 동안 반복한다.\r\n\r\nnum += 1 : 변수 num에 1을 더한다.",
         "no.3\n사각형을 for 반복문을\n이용해서 구현하세요\n\nTurtle() : 거북이를 만든다.\nrotateX(각도) : X축으로 회전한다.\nrotateY(각도) : Y축으로 회전한다.\nforward(거리) : 바라보는 방향으로 이동한다.\nfor i in range(n) : 코드를 n번 반복한다.",
         "no.4\n2D 2",
         "no.5\npython 3",
@@ -128,7 +128,7 @@ public class ButtonManager : MonoBehaviour
 
     private string[][] allHints = {
         new string[] { "\"거북이는 오른쪽으로\n방향을 틀고 앞으로 이동했어.\n그러고 나서는 하늘로\n몸을 돌려서 위로 올라가더니,\n세 번을 더 회전하며\n사각형을 완성했지!\"", "\ra = ________()\r\na.________(90)\r\na.forward(3)\r\na.________(270)\r\na.forward(3)\r\na.________(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.________(3)" },
-        new string[] { "hint 2-1", "hint 2-2" },
+        new string[] { "\"거북이는 오른쪽으로 방향을 틀고,\r\n숫자가 4가 되기 전까지 같은 동작을 반복했어.\r\n앞으로 나아가고, 아래로 몸을 꺾었지.\r\n매번 숫자를 하나씩 늘리면서!\"", "a = Turtle()\r\na.rotateY(90)\r\n______ = 0\r\nwhile ______ < ____:\r\n    a.forward(3)\r\n    a.rotateX(-90)\r\n    ______ += 1" },
         new string[] { "\"거북이는 오른쪽으로\n방향을 틀고 이동했어.\r\n앞으로 나아가고 몸을 꺾기를 4회 진행했지!\r\n그렇게 사각형을 그리며 움직였어!\"", "\ra = Turtle()\r\na.rotateY(90)\r\nfor __ in ______(__):\r\n    a._______(_)\r\n    a.rotateX(270)" },
         new string[] { "hint 4-1", "hint 4-2" },
         new string[] { "hint 5-1", "hint 5-2" },
@@ -139,7 +139,7 @@ public class ButtonManager : MonoBehaviour
 
     private string[] allAnswers = {
         "\ra = Turtle()\r\na.rotateY(90)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)\r\na.rotateX(270)\r\na.forward(3)",
-        "Answer2",
+        "\ra = Turtle()\r\na.rotateY(90)\r\nnum = 0\r\nwhile num < 4:\r\n\ta.forward(3)\r\n\ta.rotateX(-90)\r\n\tnum += 1",
         "\ra = Turtle()\r\na.rotateY(90)\r\nfor i in range(4):\r\n\ta.forward(3)\r\n\ta.rotateX(270)",
         "Answer4",
         "Answer5",
