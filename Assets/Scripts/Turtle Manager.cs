@@ -39,6 +39,10 @@ public class TurtleManager : MonoBehaviour
     public static TurtleManager instance;
     private BoxCollider gridCollider;
 
+
+    private string lastFriendlyMessage;
+
+
     private static readonly Dictionary<string, Color> ColorNameMap = new()
 {
     { "red",    Color.red },
@@ -160,14 +164,56 @@ public class TurtleManager : MonoBehaviour
             StartCoroutine(ProcessCommand(commandQueue.Dequeue()));
     }
 
-    public void PrintError(string msg)
+    public void PrintError(string msg, string errorType = null)
     {
         Debug.LogError(msg);
-        if (terminalText != null) terminalText.text = msg + "\n";
+        lastFriendlyMessage = GetFriendlyMessage(errorType);
+
+        if (terminalText != null)
+            terminalText.text = msg + "\n";
 
         StopAllCoroutines();
         isProcessing = true;
         userInputField.gameObject.SetActive(false);
+    }
+    public void OnErrorButtonClicked()
+    {
+        if (!string.IsNullOrEmpty(lastFriendlyMessage))
+        {
+            Debug.Log("설명: " + lastFriendlyMessage);
+            if (terminalText != null)
+                terminalText.text += "설명: " + lastFriendlyMessage + "\n";
+        }
+    }
+
+
+    private string GetFriendlyMessage(string errorType)
+    {
+        switch (errorType)
+        {
+            case "noTurtle":
+                return "더 이상 사용할 수 있는 거북이가 없습니다.";
+            case "printSyntax":
+                return "print 문법 오류입니다. print() 형태로 입력해 주세요.";
+            case "forBlockEmpty":
+                return "for문 아래에 실행할 명령이 없습니다. 들여쓰기를 맞춰서 코드를 입력해 주세요!";
+            case "whileBlockEmpty":
+                return "while문 아래에 실행할 명령이 없습니다. 들여쓰기를 맞춰서 코드를 입력해 주세요!";
+            case "outOfBounds":
+                return "더 이상 이동할 수 없는 위치입니다. 거북이가 이동할 수 있는지 확인해 주세요.";
+            case "notNumber":
+                return "이 변수는 숫자가 아니어서 숫자 연산을 할 수 없습니다.";
+            case "unknownCommand":
+                return "인식할 수 없는 명령어입니다. 함수 이름이나 변수명을 다시 확인해 주세요.";
+            case "varNotFound":
+                return "변수를 찾을 수 없습니다. 철자가 맞는지 확인해 주세요.";
+            case "invalidAssignment":
+                return "이 값은 변수에 넣을 수 없습니다. 다시 확인해 주세요.";
+            case "rhsNotNumber":
+                return "오른쪽 값이 숫자이어야 합니다. 다시 확인해 주세요.";
+            default:
+                return null;
+        }
     }
 
     private IEnumerator ProcessCommand(Command cmd)
@@ -257,7 +303,7 @@ public class TurtleManager : MonoBehaviour
             }
             else
             {
-                PrintError($"[addAssignMatch] 변수 '{varName}'를 찾을 수 없음");
+                PrintError($"[addAssignMatch] 변수 '{varName}'를 찾을 수 없음", "varNotFound");
                 yield break;
             }
 
@@ -320,7 +366,7 @@ public class TurtleManager : MonoBehaviour
             }
             else
             {
-                PrintError($"[TurtleManager] 대입 실패: '{trimmed}'를 파싱할 수 없음");
+                PrintError($"[TurtleManager] 대입 실패: '{trimmed}'를 파싱할 수 없음", "rhsNotNumber");
                 yield break;
             }
 
@@ -337,7 +383,7 @@ public class TurtleManager : MonoBehaviour
             var printSyntaxMatch = Regex.Match(normalized, @"^print\(.+\)$");
             if (!printSyntaxMatch.Success)
             {
-                PrintError("[TurtleManager] print 문법 오류");
+                PrintError("[TurtleManager] print 문법 오류", "printSyntax");
                 yield break;
             }
 
@@ -402,7 +448,7 @@ public class TurtleManager : MonoBehaviour
             var bodyCmds = DequeueBlock(indent);
             if (bodyCmds.Count == 0)
             {
-                PrintError("[TurtleManager] 파이썬 문법 오류: for문 블록 없음");
+                PrintError("[TurtleManager] 파이썬 문법 오류: for문 블록 없음", "forBlockEmpty");
                 yield break;
             }
 
@@ -513,7 +559,7 @@ public class TurtleManager : MonoBehaviour
             var bodyCmds = DequeueBlock(indent);
             if (bodyCmds.Count == 0)
             {
-                PrintError("[TurtleManager] while문 블록 없음");
+                PrintError("[TurtleManager] while문 블록 없음", "whileBlockEmpty");
                 yield break;
             }
 
@@ -559,7 +605,7 @@ public class TurtleManager : MonoBehaviour
                 }
                 else
                 {
-                    PrintError($"[TurtleManager] {varName}는 숫자가 아님");
+                    PrintError($"[TurtleManager] {varName}는 숫자가 아님", "notNumber");
                     yield break;
                 }
             }
@@ -592,7 +638,7 @@ public class TurtleManager : MonoBehaviour
                 namedTurtles[name] = t;
                 t.GetComponentInChildren<TurtleDrawer>().StartDrawing();
             }
-            else PrintError("[TurtleManager] 풀에 남은 거북이 없음.");
+            else PrintError("[TurtleManager] 풀에 남은 거북이 없음.", "noTurtle");
         }
         // 2) 위치 저장: v=a.position()
         else if (lower.EndsWith(".position()") && raw.Contains("="))
@@ -660,7 +706,7 @@ public class TurtleManager : MonoBehaviour
             }
             else
             {
-                PrintError($"[TurtleManager] 이동 범위 벗어남: {name}");
+                PrintError($"[TurtleManager] 이동 범위 벗어남: {name}", "outOfBounds");
             }
         }
         // 4) 일반 회전: rotate(x,y,z)
@@ -813,7 +859,7 @@ public class TurtleManager : MonoBehaviour
         }
         else
         {
-            PrintError($"[TurtleManager] 명령 해석 실패: {raw}");
+            PrintError($"[TurtleManager] 명령 해석 실패: {raw}", "unknownCommand");
         }
     }
 

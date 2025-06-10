@@ -45,7 +45,7 @@ public class ButtonManager : MonoBehaviour
 
         Debug.Log("Stop!"); //일시정지
 
-         if (turtleManager != null)
+        if (turtleManager != null)
             turtleManager.PrintError("Stop 버튼이 눌렸습니다");
         else if (TurtleManager.instance != null)
             TurtleManager.instance.PrintError("Stop 버튼이 눌렸습니다");
@@ -309,11 +309,20 @@ public class ButtonManager : MonoBehaviour
     }*/
 
     //Error!!
-    public void ErrorButton()
+    public void ErrorButton(string errorType)
     {
+        if (lastClickedButton == "Error")
+        {
+            Debug.Log("Error 버튼 연속 클릭 방지됨");
+            return;
+        }
 
-        Debug.Log("Something Wrong!"); //오류 알려주기
+        lastClickedButton = "Error";
+
+        Debug.Log("Error 버튼이 눌렸습니다.");
+        turtleManager.OnErrorButtonClicked();
     }
+
 
 
     //Exit!!
