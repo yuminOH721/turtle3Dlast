@@ -113,6 +113,9 @@ public class TurtleManager : MonoBehaviour
     {
         ResetAllTurtles();
         var lines = commandInput.text.Split('\n');
+
+        var blockStack = new Stack<(int indent, string type)>();
+
         foreach (var line in lines)
         {
             // 원본 앞부분의 공백 개수 세기
@@ -123,7 +126,30 @@ public class TurtleManager : MonoBehaviour
             var raw = line.Trim();
             if (raw.Length == 0) continue;
 
-            commandQueue.Enqueue(new Command(raw, indent));
+            // 1) 현재 들여쓰기를 기준으로 스택에서 끝난 블록들 Pop
+            while (blockStack.Count > 0 && indent <= blockStack.Peek().indent)
+                blockStack.Pop();
+
+            // 2) 이 줄의 ParentBlockType 결정
+            string parent = blockStack.Count > 0
+                ? blockStack.Peek().type
+                : null;
+
+            // 3) 이 줄이 "블록 시작(if/for/while)"인지 감지
+            string thisType = null;
+            if (Regex.IsMatch(raw, @"^(if |elif |else:)"))
+                thisType = "if";
+            else if (Regex.IsMatch(raw.ToLower(), @"^for \w+ in range\(\d+\):"))
+                thisType = "for";
+            else if (Regex.IsMatch(raw.ToLower(), @"^while .+:"))
+                thisType = "while";
+
+            // 4) 블록 시작이면 스택에 Push
+            if (thisType != null)
+                blockStack.Push((indent, thisType));
+
+            // 5) 명령 큐에 BlockType, ParentBlockType 포함하여 저장
+            commandQueue.Enqueue(new Command(raw, indent, thisType, parent));
         }
     }
 
@@ -140,7 +166,7 @@ public class TurtleManager : MonoBehaviour
         if (terminalText != null) terminalText.text = msg + "\n";
 
         StopAllCoroutines();
-        isProcessing = false;
+        isProcessing = true;
         userInputField.gameObject.SetActive(false);
     }
 
@@ -158,6 +184,10 @@ public class TurtleManager : MonoBehaviour
 
     private IEnumerator DispatchCommand(Command cmd)
     {
+        bool inAnyBlock = cmd.BlockType != null
+               || cmd.ParentBlockType != null;
+        Debug.Log($"[Dispatch] Raw='{cmd.Raw}', BlockType={cmd.BlockType}, Parent={cmd.ParentBlockType}, inAnyBlock={inAnyBlock}");
+
         string raw = cmd.Raw;
         int indent = cmd.Indent;
         string lower = raw.ToLowerInvariant();
@@ -184,11 +214,61 @@ public class TurtleManager : MonoBehaviour
             }
             yield break;
         }
+        Debug.Log($"[normalized] '{normalized}'");
+
+        var addAssignMatch = Regex.Match(normalized, @"^([a-zA-Z_]\w*)\s*\+=\s*(.+)$");
+        if (addAssignMatch.Success)
+        {
+            Debug.Log($"[addAssignMatch] 성공: {normalized}");
+
+            string varName = addAssignMatch.Groups[1].Value.Trim();
+            string rhsText = addAssignMatch.Groups[2].Value.Trim();
+            Debug.Log($"[addAssignMatch] varName: {varName}, rhsText: {rhsText}");
+
+            if (variables.TryGetValue(varName, out object oldVal))
+            {
+                Debug.Log($"[addAssignMatch] 기존 변수값: {varName} = {oldVal} ({oldVal.GetType()})");
+
+                if (TryParseExpression(rhsText, out float addVal))
+                {
+                    Debug.Log($"[addAssignMatch] addVal 평가됨: {addVal}");
+
+                    if (oldVal is int iVal)
+                    {
+                        variables[varName] = iVal + (int)addVal;
+                        Debug.Log($"[addAssignMatch] 최종 int 값: {variables[varName]}");
+                    }
+                    else if (oldVal is float fVal)
+                    {
+                        variables[varName] = fVal + addVal;
+                        Debug.Log($"[addAssignMatch] 최종 float 값: {variables[varName]}");
+                    }
+                    else
+                    {
+                        PrintError($"{varName}는 실수형이어야 합니다.");
+                        yield break;
+                    }
+                }
+                else
+                {
+                    PrintError($"[addAssignMatch] {rhsText} 평가 실패");
+                    yield break;
+                }
+            }
+            else
+            {
+                PrintError($"[addAssignMatch] 변수 '{varName}'를 찾을 수 없음");
+                yield break;
+            }
+
+            yield break;
+        }
+
 
         // ────────────────────────────────────────────────────────────────────────────
 
         // 1) “변수 대입” 구문 처리 (각종 리터럴 및 기존 변수 복사)
-        var assignMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)\s*=\s*(.+)$");
+        var assignMatch = Regex.Match(normalized, @"^([a-zA-Z_]\w*)\s*=\s*(.+)$");
         if (assignMatch.Success)
         {
             string varName = assignMatch.Groups[1].Value;
@@ -217,6 +297,11 @@ public class TurtleManager : MonoBehaviour
             {
                 value = trimmed.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
+            // -- 정수 리터럴
+            else if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iVal))
+            {
+                value = iVal;
+            }
             // -- 실수 리터럴 (소수점 포함)
             else if (float.TryParse(trimmed.TrimEnd('f', 'F'),
                                     NumberStyles.Float | NumberStyles.AllowThousands,
@@ -227,11 +312,6 @@ public class TurtleManager : MonoBehaviour
                     value = fVal;
                 else
                     value = (double)fVal;
-            }
-            // -- 정수 리터럴
-            else if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iVal))
-            {
-                value = iVal;
             }
             // -- 기존에 저장된 변수 복사
             else if (variables.TryGetValue(trimmed, out object existing))
@@ -338,9 +418,10 @@ public class TurtleManager : MonoBehaviour
         }
 
         // if condition:
-        if (normalized.StartsWith("if ") && normalized.EndsWith(":")
-            || normalized.StartsWith("elif ") && normalized.EndsWith(":")
+        if ((normalized.StartsWith("if ") && normalized.EndsWith(":"))
+            || (normalized.StartsWith("elif ") && normalized.EndsWith(":"))
             || normalized.Equals("else:"))
+
         {
             var blockLines = new List<Command>();
             blockLines.Add(cmd);
@@ -434,42 +515,58 @@ public class TurtleManager : MonoBehaviour
             }
 
             int maxLoop = 1000;
-            bool breakLoop = false;
             while (EvaluateCondition(condition) && maxLoop-- > 0)
             {
                 foreach (var c in bodyCmds)
                 {
+                    // 'break' 처리
                     if (c.Raw.Trim() == "break")
                     {
-                        breakLoop = true;
+                        maxLoop = 0;
                         break;
                     }
-                    commandQueue.Enqueue(c);
+                    yield return StartCoroutine(DispatchCommand(c));
+                    yield return new WaitForSeconds(stepDelay);
                 }
-                if (breakLoop) break;
             }
-            if (maxLoop <= 0)
-                PrintError("[TurtleManager] while문 루프가 너무 깁니다.");
-
+            if (maxLoop < 0)
+                PrintError("[TurtleManager] while문 루프 무한 반복.");
             yield break;
         }
+
         // ────────────────────────────────────────────────────────────────────────────
         // input() 처리: 예) name = input("Your name?")
-        var inputMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)\s*=\s*input\((.*)\)$");
-        if (inputMatch.Success)
+
+        // a++ 또는 a--
+        var incDecMatch = Regex.Match(raw, @"^([a-zA-Z_]\w*)(\+\+|--)$");
+        if (incDecMatch.Success)
         {
-            string varName = inputMatch.Groups[1].Value;
-            string prompt = inputMatch.Groups[2].Value.Trim();
+            string varName = incDecMatch.Groups[1].Value;
+            string op = incDecMatch.Groups[2].Value;
 
-            // 따옴표 제거
-            if ((prompt.StartsWith("\"") && prompt.EndsWith("\"")) || (prompt.StartsWith("'") && prompt.EndsWith("'")))
-                prompt = prompt.Substring(1, prompt.Length - 2);
-
-            // 사용자 입력 받기
-            yield return StartCoroutine(WaitForUserInput(prompt, varName));
+            if (variables.TryGetValue(varName, out object val))
+            {
+                if (val is int iVal)
+                {
+                    variables[varName] = (op == "++") ? iVal + 1 : iVal - 1;
+                }
+                else if (val is float fVal)
+                {
+                    variables[varName] = (op == "++") ? fVal + 1f : fVal - 1f;
+                }
+                else
+                {
+                    PrintError($"[TurtleManager] {varName}는 숫자가 아님");
+                    yield break;
+                }
+            }
+            else
+            {
+                PrintError($"[TurtleManager] 변수 '{varName}'를 찾을 수 없음");
+                yield break;
+            }
             yield break;
         }
-
 
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
@@ -986,10 +1083,18 @@ class Command
 {
     public readonly string Raw;       // Trim()된 텍스트
     public readonly int Indent;       //  앞 공백(스페이스/탭) 개수
-    public Command(string raw, int indent)
+    public string BlockType { get; set; }
+    public string ParentBlockType { get; set; }
+    public Command(string raw, int indent, string blockType = null, string parentBlockType = null)
     {
-        Raw = raw; Indent = indent;
+        Raw = raw;
+        Indent = indent;
+        BlockType = blockType;
+        ParentBlockType = parentBlockType;
     }
+
+    public override string ToString()
+        => $"[{BlockType ?? "global"}] (parent: {ParentBlockType ?? "none"}) {Raw}";
 
 
 }
