@@ -211,6 +211,10 @@ public class TurtleManager : MonoBehaviour
                 return "이 값은 변수에 넣을 수 없습니다. 다시 확인해 주세요.";
             case "rhsNotNumber":
                 return "오른쪽 값이 숫자이어야 합니다. 다시 확인해 주세요.";
+            case "rotate3ArgParseFail":
+                return "rotate 명령어는 쉼표로 구분된 3개의 숫자가 필요합니다. 예: rotate(30, 0, 0)";
+            case "rotate1ArgParseFail":
+                return "rotatex, rotatey, rotatez 명령어는 1개의 숫자 인자가 필요합니다. 예: rotatex(30)";
             default:
                 return null;
         }
@@ -665,11 +669,26 @@ public class TurtleManager : MonoBehaviour
             int end = raw.LastIndexOf(')');
             string numText = raw.Substring(start, end - start);
 
-            if (!float.TryParse(numText, out float requestedUnits))
+            float requestedUnits;
+
+            if (variables.TryGetValue(numText, out var val))
             {
-                PrintError($"[TurtleManager] forward 파싱 실패: {raw}");
+                if (val is int iVal)
+                    requestedUnits = iVal;
+                else if (val is float fVal)
+                    requestedUnits = fVal;
+                else
+                {
+                    PrintError($"forward 대상이 숫자가 아님: {numText}");
+                    yield break;
+                }
+            }
+            else if (!float.TryParse(numText, out requestedUnits))
+            {
+                PrintError($"forward 파싱 실패: {raw}", "rhsNotNumber");
                 yield break;
             }
+
 
             if (!namedTurtles.TryGetValue(name, out var t))
             {
@@ -726,7 +745,7 @@ public class TurtleManager : MonoBehaviour
             {
                 yield return StartCoroutine(t.Rotate(rx, ry, rz));
             }
-            else PrintError($"[TurtleManager] rotate 파싱 실패: {raw}");
+            else PrintError($"[TurtleManager] rotate 파싱 실패: {raw}", "rotate3ArgParseFail");
         }
         // 5) rotatex / rotatey / rotatez
         else if (lower.Contains(".rotatex(") && raw.EndsWith(")"))
@@ -739,7 +758,7 @@ public class TurtleManager : MonoBehaviour
             var arg = raw.Substring(start, end - start);
             if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float x))
                 yield return StartCoroutine(t.Rotate(x, 0, 0));
-            else PrintError($"[TurtleManager] rotatex 파싱 실패: {raw}");
+            else PrintError($"[TurtleManager] rotatex 파싱 실패: {raw}", "rotate1ArgParseFail");
         }
         else if (lower.Contains(".rotatey(") && raw.EndsWith(")"))
         {
@@ -751,7 +770,7 @@ public class TurtleManager : MonoBehaviour
             var arg = raw.Substring(start, end - start);
             if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float y))
                 yield return StartCoroutine(t.Rotate(0, y, 0));
-            else PrintError($"[TurtleManager] rotatey 파싱 실패: {raw}");
+            else PrintError($"[TurtleManager] rotatey 파싱 실패: {raw}", "rotate1ArgParseFail");
         }
         else if (lower.Contains(".rotatez(") && raw.EndsWith(")"))
         {
@@ -763,7 +782,7 @@ public class TurtleManager : MonoBehaviour
             var arg = raw.Substring(start, end - start);
             if (namedTurtles.TryGetValue(name, out var t) && TryParseExpression(arg, out float z))
                 yield return StartCoroutine(t.Rotate(0, 0, z));
-            else PrintError($"[TurtleManager] rotatez 파싱 실패: {raw}");
+            else PrintError($"[TurtleManager] rotatez 파싱 실패: {raw}", "rotate1ArgParseFail");
         }
         // 6) pencolor(r,g,b)
         else if (lower.Contains(".pencolor(") && raw.EndsWith(")"))
