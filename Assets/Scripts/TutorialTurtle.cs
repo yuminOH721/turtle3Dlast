@@ -170,7 +170,7 @@ public class TutorialTurtle : MonoBehaviour
         "a = Turtle() \n a.forward(3) \n 를 입력해봐!!", //15
 
         "큐브와 출력창에 \n 동시에 출력되는 \n 코드를 작성해볼까?", //16
-        "t = Turtle() \n a = 100 \n t.forward(a) \n print(a)", //17
+        "t = Turtle() \n a = 3 \n t.forward(a) \n print(a)", //17
 
         // ✅ window3(버튼존) (18~28)
         "이쪽은 버튼 존이야.\n 하나씩 알려줄게!", //18
