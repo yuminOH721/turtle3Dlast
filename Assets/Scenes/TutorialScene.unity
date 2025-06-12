@@ -6848,7 +6848,7 @@ MonoBehaviour:
   movementScale: 0.2
   stepDelay: 0.5
   terminalText: {fileID: 780910112}
-  commandInput: {fileID: 0}
+  commandInput: {fileID: 222641728}
   userInputField: {fileID: 0}
   minPenSize: 0.01
   maxPenSize: 0.1
