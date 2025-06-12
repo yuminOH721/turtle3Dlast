@@ -155,6 +155,10 @@ public class ButtonManager : MonoBehaviour
         "Answer8"
     };
 
+    public GameObject nextCanvas;           // 새로 만든 Canvas 오브젝트
+    public UnityEngine.UI.Image nextImage;  // Canvas 안의 Image
+    public Sprite[] nextSprites;            // 문제 번호마다 보여줄 Sprite 배열
+
     private string[] hints;  // 현재 문제의 힌트 배열
     private int currentHintIndex = 0;
     private int currentQuestionIndex = 0;
@@ -187,7 +191,29 @@ public class ButtonManager : MonoBehaviour
 
         SetQuestion(NB); // index에 해당하는 문제 설정
 
+        // 이미지 보여주기
+        if (nextCanvas != null)
+        {
+            nextCanvas.SetActive(true); // 캔버스 보이게
+        }
+
+        if (nextImage != null && nextSprites != null && NB < nextSprites.Length)
+        {
+            nextImage.sprite = nextSprites[NB];
+        }
+
         Debug.Log("Next"); //다음으로 이동
+
+        if (nextImage != null && nextSprites != null && NB < nextSprites.Length)
+        {
+            Debug.Log($"[Image 교체] NB: {NB}, Sprite: {nextSprites[NB]?.name}");
+            nextImage.sprite = nextSprites[NB];
+        }
+        else
+        {
+            Debug.LogWarning("이미지를 바꾸는 조건이 안 맞아요!");
+        }
+
     }
 
 

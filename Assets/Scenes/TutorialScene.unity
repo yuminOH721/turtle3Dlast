@@ -3258,6 +3258,9 @@ MonoBehaviour:
   turtleManager: {fileID: 0}
   HelpText: {fileID: 995560198}
   isHelpButton: 1
+  nextCanvas: {fileID: 0}
+  nextImage: {fileID: 0}
+  nextSprites: []
   AnswerText: {fileID: 0}
   isAnswerButton: 0
 --- !u!114 &438875240
@@ -6223,6 +6226,9 @@ MonoBehaviour:
   turtleManager: {fileID: 1256637174}
   HelpText: {fileID: 995560198}
   isHelpButton: 0
+  nextCanvas: {fileID: 0}
+  nextImage: {fileID: 0}
+  nextSprites: []
   AnswerText: {fileID: 222641728}
   isAnswerButton: 0
 --- !u!4 &1023671866
@@ -11655,6 +11661,9 @@ MonoBehaviour:
   turtleManager: {fileID: 0}
   HelpText: {fileID: 0}
   isHelpButton: 0
+  nextCanvas: {fileID: 0}
+  nextImage: {fileID: 0}
+  nextSprites: []
   AnswerText: {fileID: 222641728}
   isAnswerButton: 1
 --- !u!114 &2007102060
