@@ -191,6 +191,16 @@ public class TurtleManager : MonoBehaviour
         }
     }
 
+    public void OnTutorialErrorButtonClicked()
+    {
+        string message = !string.IsNullOrEmpty(lastFriendlyMessage)
+            ? "설명: " + lastFriendlyMessage
+            : "ERROR 버튼입니다.\n출력된 오류의 더 자세한 정보를 제공합니다.";
+
+        if (terminalText != null)
+            terminalText.text = message + "\n";
+    }
+
 
     private string GetFriendlyMessage(string errorType)
     {
