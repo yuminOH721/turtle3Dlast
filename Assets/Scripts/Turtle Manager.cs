@@ -60,8 +60,13 @@ public class TurtleManager : MonoBehaviour
 
     void Awake()
     {
-        if (instance == null) instance = this;
-        else if (instance != this) { Destroy(gameObject); return; }
+        if (instance != null && instance != this)
+        {
+            Destroy(instance.gameObject);
+        }
+
+        instance = this;
+
         DontDestroyOnLoad(gameObject);
 
         if (gridParent == null)
