@@ -15,7 +15,10 @@ namespace SceneLoad.Managers
         {
             SceneManager.LoadScene("GateScene");
         }
-
+        public void LoadStartScene()
+        {
+            SceneManager.LoadScene("StartScene");
+        }
         public void LoadMainScene(int buttonNumber)
         {
             selectedIndex = buttonNumber - 1;  // 선택번호 - 1 로 인덱스 계산
