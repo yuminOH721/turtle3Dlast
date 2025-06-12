@@ -203,6 +203,17 @@ public class ButtonManager : MonoBehaviour
         }
 
         Debug.Log("Next"); //다음으로 이동
+
+        if (nextImage != null && nextSprites != null && NB < nextSprites.Length)
+        {
+            Debug.Log($"[Image 교체] NB: {NB}, Sprite: {nextSprites[NB]?.name}");
+            nextImage.sprite = nextSprites[NB];
+        }
+        else
+        {
+            Debug.LogWarning("이미지를 바꾸는 조건이 안 맞아요!");
+        }
+
     }
 
 
