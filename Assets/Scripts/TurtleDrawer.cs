@@ -42,7 +42,7 @@ public class TurtleDrawer : MonoBehaviour
         go.transform.SetParent(gridcube, false);
 
         var lr = go.AddComponent<LineRenderer>();
-        lr.useWorldSpace = true;
+        lr.useWorldSpace = false;
 
         // 머티리얼 설정
         if (rainbowLineMat != null)
@@ -57,6 +57,20 @@ public class TurtleDrawer : MonoBehaviour
         isDrawingEnabled = true;
 
         ApplyRainbow();
+
+        // 추가됨 06.12
+        if (penTip != null && gridcube != null)
+        {
+            var pt = gridcube.InverseTransformPoint(penTip.position);
+
+            if (pt.y > -10f && pt.y < 10f) // 안전한 범위 안에 있을 때만
+            {
+                localPoints.Clear();
+                localPoints.Add(pt);
+                currentLine.positionCount = 1;
+                currentLine.SetPosition(0, pt);
+            }
+        }
     }
 
     public void StopDrawing()
@@ -118,18 +132,34 @@ public class TurtleDrawer : MonoBehaviour
         currentLine.textureMode = LineTextureMode.Stretch;
     }
 
+    // void Update()
+    // {
+    //     if (!isDrawingEnabled || penTip == null || gridcube == null || currentLine == null)
+    //         return;
+
+    //     var pt = gridcube.InverseTransformPoint(penTip.position);
+    //     if (localPoints.Count == 0 || Vector3.Distance(pt, localPoints[^1]) > drawDistanceThreshold)
+    //     {
+    //         localPoints.Add(pt);
+    //         currentLine.positionCount = localPoints.Count;
+    //         for (int i = 0; i < localPoints.Count; i++)
+    //             currentLine.SetPosition(i, gridcube.TransformPoint(localPoints[i]));
+    //     }
+    // }
     void Update()
     {
         if (!isDrawingEnabled || penTip == null || gridcube == null || currentLine == null)
             return;
 
-        var pt = gridcube.InverseTransformPoint(penTip.position);
+        var pt = gridcube.InverseTransformPoint(penTip.position);  // 그리드 기준 로컬 좌표
+
         if (localPoints.Count == 0 || Vector3.Distance(pt, localPoints[^1]) > drawDistanceThreshold)
         {
             localPoints.Add(pt);
             currentLine.positionCount = localPoints.Count;
             for (int i = 0; i < localPoints.Count; i++)
-                currentLine.SetPosition(i, gridcube.TransformPoint(localPoints[i]));
+                currentLine.SetPosition(i, localPoints[i]); // 로컬 좌표 그대로 사용
         }
     }
+
 }
