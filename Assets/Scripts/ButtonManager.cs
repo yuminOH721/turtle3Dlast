@@ -348,4 +348,36 @@ public class ButtonManager : MonoBehaviour
         Debug.Log("Exit!"); //나가기
     }
 
+    public void TutorialStop()
+    {
+        lastClickedButton = "Stop";
+
+        if (turtleManager != null && turtleManager.terminalText != null)
+        {
+            turtleManager.terminalText.text = "STOP 버튼입니다.\n진행 중인 거북이의 움직임을 멈춥니다.";
+        }
+        else
+        {
+            Debug.LogError("TurtleManager 또는 terminalText가 할당되지 않았습니다.");
+        }
+    }
+
+    public void TutorialError()
+    {
+        lastClickedButton = "Error";
+
+        if (turtleManager != null)
+        {
+            turtleManager.OnTutorialErrorButtonClicked(); 
+        }
+        else
+        {
+            Debug.LogError("TurtleManager가 할당되지 않았습니다.");
+        }
+    }
+
+
+
+
+
 }
