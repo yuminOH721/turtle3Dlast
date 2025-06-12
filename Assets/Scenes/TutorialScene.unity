@@ -639,7 +639,7 @@ Transform:
   m_GameObject: {fileID: 51969237}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 2.11, y: -1.66, z: 2.34}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3234,6 +3234,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   turtleManager: {fileID: 0}
+  isTutorialMode: 0
   HelpText: {fileID: 995560198}
   isHelpButton: 1
   AnswerText: {fileID: 0}
@@ -4132,6 +4133,18 @@ MonoBehaviour:
       - m_Target: {fileID: 384177835}
         m_TargetAssemblyTypeName: SounManager, Assembly-CSharp
         m_MethodName: PlayClickSound
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1023671865}
+        m_TargetAssemblyTypeName: ButtonManager, Assembly-CSharp
+        m_MethodName: TutorialError
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5059,6 +5072,18 @@ MonoBehaviour:
       - m_Target: {fileID: 384177835}
         m_TargetAssemblyTypeName: SounManager, Assembly-CSharp
         m_MethodName: PlayClickSound
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1023671865}
+        m_TargetAssemblyTypeName: ButtonManager, Assembly-CSharp
+        m_MethodName: TutorialStop
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6125,6 +6150,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   turtleManager: {fileID: 1256637174}
+  isTutorialMode: 0
   HelpText: {fileID: 995560198}
   isHelpButton: 0
   AnswerText: {fileID: 222641728}
@@ -11557,6 +11583,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   turtleManager: {fileID: 0}
+  isTutorialMode: 0
   HelpText: {fileID: 0}
   isHelpButton: 0
   AnswerText: {fileID: 222641728}
