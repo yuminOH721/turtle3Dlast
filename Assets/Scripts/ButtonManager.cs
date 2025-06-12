@@ -15,9 +15,6 @@ public class ButtonManager : MonoBehaviour
 
     [SerializeField] private TurtleManager turtleManager;
 
-    // 추가: 튜토리얼 모드 여부 플래그
-    [SerializeField] private bool isTutorialMode = false;
-
     private void Start()
     {
         NB = SceneLoaderManager.selectedIndex;
@@ -335,37 +332,5 @@ public class ButtonManager : MonoBehaviour
 
         Debug.Log("Exit!"); //나가기
     }
-
-    // 튜토리얼 전용 Stop
-    public void TutorialStop()
-    {
-        Debug.Log("Exit!"); //나가기
-
-        if (turtleManager != null && turtleManager.terminalText != null)
-        {
-            turtleManager.terminalText.text = "STOP 버튼입니다.\n 진행 중인 거북이의 움직임을 멈춥니다.\n";
-        }
-        else
-        {
-            Debug.LogError("TurtleManager 또는 terminalText가 할당되지 않았습니다.");
-        }
-    }
-
-
-    // 튜토리얼 전용 Error
-    public void TutorialError()
-    {
-
-        if (turtleManager != null)
-        {
-            turtleManager.OnTutorialErrorButtonClicked(); // 사용자에게 메시지 출력
-        }
-        else
-        {
-            Debug.LogError("TurtleManager가 할당되지 않았습니다.");
-        }
-    }
-
-
 
 }
