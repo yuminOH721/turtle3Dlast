@@ -836,6 +836,21 @@ public class TurtleManager : MonoBehaviour
                 colorKey = colorKey.Substring(1, colorKey.Length - 2).Trim();
             }
             colorKey = colorKey.ToLowerInvariant();
+            // → rainbow 키워드인 경우 무지개 모드로 전환
+            if (colorKey == "rainbow")
+            {
+                if (namedTurtles.TryGetValue(name, out Turtle3D t))
+                {
+                    var drawer = t.GetComponentInChildren<TurtleDrawer>();
+                    drawer.ResetToRainbow();   // 아래에서 구현할 메서드
+                }
+                else
+                {
+                    PrintError($"[TurtleManager] pencolor 실패: 거북이 '{name}' 없음.");
+                }
+                yield break;
+            }
+
 
             if (ColorNameMap.TryGetValue(colorKey, out Color namedColor))
             {

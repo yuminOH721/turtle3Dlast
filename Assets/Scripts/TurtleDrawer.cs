@@ -18,6 +18,7 @@ public class TurtleDrawer : MonoBehaviour
     private LineRenderer currentLine;
     private Material lineMaterial;
     private float lineStartWidth, lineEndWidth;
+    private Color pendingColor = default;
 
     void Awake()
     {
@@ -31,6 +32,7 @@ public class TurtleDrawer : MonoBehaviour
         lineEndWidth = baseLR.endWidth;
         baseLR.enabled = false;
 
+        pendingColor = default;
         StartDrawing();
     }
 
@@ -44,32 +46,44 @@ public class TurtleDrawer : MonoBehaviour
         var lr = go.AddComponent<LineRenderer>();
         lr.useWorldSpace = false;
 
-        // 머티리얼 설정
-        if (rainbowLineMat != null)
-            lr.material = rainbowLineMat;
+        // ── 머티리얼/셰이더 설정 ────────────────────────────────────────
+        Material mat;
+        if (pendingColor != default)
+        {
+            // 단색 모드: Unlit/Color 셰이더 사용
+            var shader = Shader.Find("Unlit/Color");
+            mat = new Material(shader);
+            mat.color = pendingColor;
+        }
         else
-            lr.material = lineMaterial;
+        {
+            // 무지개 모드: vertex color 그라디언트 지원 셰이더
+            // (Sprite Default 는 버텍스 컬러를 지원합니다)
+            var shader = Shader.Find("Sprites/Default");
+            mat = new Material(shader);
+            // gradient 는 아래 ApplyRainbow()에서 세팅
+        }
+        lr.material = mat;
+        // ────────────────────────────────────────────────────────────────
 
         lr.startWidth = lineStartWidth;
         lr.endWidth = lineEndWidth;
 
         currentLine = lr;
         isDrawingEnabled = true;
+        localPoints.Clear();
 
-        ApplyRainbow();
+        // 무지개 모드일 때만 그라데이션 적용
+        if (pendingColor == default)
+            ApplyRainbow();
 
-        // 추가됨 06.12
-        if (penTip != null && gridcube != null)
+        // 초기 포인트
+        if (penTip != null)
         {
             var pt = gridcube.InverseTransformPoint(penTip.position);
-
-            if (pt.y > -10f && pt.y < 10f) // 안전한 범위 안에 있을 때만
-            {
-                localPoints.Clear();
-                localPoints.Add(pt);
-                currentLine.positionCount = 1;
-                currentLine.SetPosition(0, pt);
-            }
+            localPoints.Add(pt);
+            currentLine.positionCount = 1;
+            currentLine.SetPosition(0, pt);
         }
     }
 
@@ -85,6 +99,8 @@ public class TurtleDrawer : MonoBehaviour
     public void ClearAllTrails()
     {
         StopDrawing();
+        pendingColor = default;
+        
         var trails = Object.FindObjectsByType<LineRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var lr in trails)
             if (lr.gameObject.name == "TurtleTrail")
@@ -93,9 +109,31 @@ public class TurtleDrawer : MonoBehaviour
 
     public void SetPenColor(Color c)
     {
-        if (currentLine != null)
+        if (isDrawingEnabled && localPoints.Count <= 1)
+        {
             currentLine.material.color = c;
+            pendingColor = c;  // 다음 StartDrawing 때도 이 색 사용
+            return;
+        }
+
+        // 이미 그리는 중이고, 실제 궤적이 있으면 → 새 LineRenderer 생성
+        if (isDrawingEnabled)
+            StopDrawing();
+
+        pendingColor = c;
+        StartDrawing();
     }
+
+    public void ResetToRainbow()
+    {
+        pendingColor = default;       // 무지개 모드 신호
+
+        if (isDrawingEnabled)
+            StopDrawing();           // 기존 트레일 끝맺기
+
+        StartDrawing();              // 무지개로 StartDrawing() 분기
+    }
+
 
     public void SetPenSize(float s)
     {
