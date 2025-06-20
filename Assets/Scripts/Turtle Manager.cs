@@ -258,6 +258,7 @@ public class TurtleManager : MonoBehaviour
         int indent = cmd.Indent;
         string lower = raw.ToLowerInvariant();
         string normalized = Regex.Replace(raw, @"\s+", " ").Trim();
+        string rawNorm = Regex.Replace(raw, @"\s+", " ").Trim();
 
         // ────────────────────────────────────────────────────────────────────────────
         // 0) “거북이 생성” 구문 처리: a = Turtle()
@@ -486,88 +487,67 @@ public class TurtleManager : MonoBehaviour
             yield break;
         }
 
-        // if condition:
-        if ((normalized.StartsWith("if ") && normalized.EndsWith(":"))
-            || (normalized.StartsWith("elif ") && normalized.EndsWith(":"))
-            || normalized.Equals("else:"))
+        // ─── if / elif / else ─────────────────────────────────────────
+        var ifMatch = Regex.Match(rawNorm, @"^if\s*\((.+)\)\s*:$", RegexOptions.IgnoreCase);
+        var elifMatch = Regex.Match(rawNorm, @"^elif\s*\((.+)\)\s*:$", RegexOptions.IgnoreCase);
+        bool isElse = Regex.IsMatch(rawNorm, @"^else\s*:$", RegexOptions.IgnoreCase);
 
+        if (ifMatch.Success || elifMatch.Success || isElse)
         {
-            var blockLines = new List<Command>();
-            blockLines.Add(cmd);
+            // 1) 헤더 모으기
+            var headers = new List<(string type, string cond)>();
+            if (ifMatch.Success) headers.Add(("if", ifMatch.Groups[1].Value));
+            else if (elifMatch.Success) headers.Add(("elif", elifMatch.Groups[1].Value));
+            else headers.Add(("else", null));
 
-            // 같은 indent 수준의 연속된 if/elif/else 줄을 모은다.
-            while (commandQueue.Count > 0 &&
-                   commandQueue.Peek().Indent == indent)
+            // 2) 연속된 elif/else 처리
+            while (commandQueue.Count > 0 && commandQueue.Peek().Indent == indent)
             {
-                string nextRaw = commandQueue.Peek().Raw;
-                string nextNorm = Regex.Replace(nextRaw, @"\s+", " ").Trim().ToLowerInvariant();
-                if ((nextNorm.StartsWith("elif ") && nextNorm.EndsWith(":"))
-                    || nextNorm.Equals("else:"))
+                string nxtRawNorm = Regex.Replace(commandQueue.Peek().Raw, @"\s+", " ").Trim();
+                var mElif = Regex.Match(nxtRawNorm, @"^elif\s*\((.+)\)\s*:$", RegexOptions.IgnoreCase);
+                if (mElif.Success)
                 {
-                    blockLines.Add(commandQueue.Dequeue());
+                    headers.Add(("elif", mElif.Groups[1].Value));
+                    commandQueue.Dequeue();
+                }
+                else if (Regex.IsMatch(nxtRawNorm, @"^else\s*:$", RegexOptions.IgnoreCase))
+                {
+                    headers.Add(("else", null));
+                    commandQueue.Dequeue();
                 }
                 else break;
             }
 
-            bool branchTaken = false;
-            // “각 분기”마다 몸통을 미리 모두 DequeueBlock으로 꺼내어 보관
-            var allBodies = new List<List<Command>>();
-            foreach (var branch in blockLines)
-            {
-                // indent보다 큰 들여쓰기(=한 단계 더 들여쓴) 명령들을 모은다.
-                var body = DequeueBlock(indent);
-                allBodies.Add(body);
-            }
+            // 3) 각 분기 몸통 꺼내기
+            var bodies = headers.Select(_ => DequeueBlock(indent)).ToList();
 
-            // 이제 순서대로 “조건 검사 → 몸통 enqueue” 또는 “버리기” 결정
-            for (int i = 0; i < blockLines.Count; i++)
+            // 4) 순서대로 조건 평가 후 enqueue
+            bool taken = false;
+            for (int i = 0; i < headers.Count; i++)
             {
-                string branchRaw = blockLines[i].Raw;
-                string branchNorm = Regex.Replace(branchRaw, @"\s+", " ").Trim().ToLowerInvariant();
+                var (type, cond) = headers[i];
+                if ((type == "if" && EvaluateCondition(cond))
+                    || (type == "elif" && !taken && EvaluateCondition(cond))
+                    || (type == "else" && !taken))
+                {
+                    // 남은 커맨드를 임시로 꺼내두기
+                    var remaining = commandQueue.ToList();
+                    commandQueue.Clear();
 
-                if (branchNorm.StartsWith("if "))
-                {
-                    string cond = branchRaw
-                        .Substring(branchRaw.IndexOf("if", StringComparison.Ordinal) + 2)
-                        .TrimEnd(':').Trim();
-                    if (EvaluateCondition(cond))
-                    {
-                        // 참이면 해당 몸통만 enqueue
-                        foreach (var c in allBodies[i])
-                            commandQueue.Enqueue(c);
-                        branchTaken = true;
-                        break;
-                    }
-                }
-                else if (branchNorm.StartsWith("elif "))
-                {
-                    if (branchTaken) break;
-                    string cond = branchRaw
-                        .Substring(branchRaw.IndexOf("elif", StringComparison.Ordinal) + 4)
-                        .TrimEnd(':').Trim();
-                    if (EvaluateCondition(cond))
-                    {
-                        foreach (var c in allBodies[i])
-                            commandQueue.Enqueue(c);
-                        branchTaken = true;
-                        break;
-                    }
-                }
-                else if (branchNorm.Equals("else:"))
-                {
-                    if (branchTaken) break;
-                    foreach (var c in allBodies[i])
-                        commandQueue.Enqueue(c);
-                    branchTaken = true;
+                    // 먼저 해당 분기 몸통을 넣고
+                    foreach (var cmdBody in bodies[i])
+                        commandQueue.Enqueue(cmdBody);
+
+                    // 그다음 원래 남아 있던 커맨드들을 다시 enqueue
+                    foreach (var cmdNext in remaining)
+                        commandQueue.Enqueue(cmdNext);
+
+                    taken = true;
                     break;
                 }
             }
-
-            // 만약 참인 분기가 하나도 없었다면(=branchTaken false), 
-            // 모두 버렸으므로 아무것도 enqueue되지 않는다.
             yield break;
         }
-
         // while condition:
         if (Regex.IsMatch(normalized, @"^while .+:$"))
         {
@@ -1190,6 +1170,30 @@ public class TurtleManager : MonoBehaviour
     private bool EvaluateCondition(string condition)
     {
         condition = condition.Trim();
+
+        // ── Boolean 변수 비교 지원 ─────────────────────────────────────
+        var boolCmp = Regex.Match(
+            condition,
+            @"^([a-zA-Z_]\w*)\s*(==|!=)\s*(true|false)$",
+            RegexOptions.IgnoreCase
+        );
+        if (boolCmp.Success)
+        {
+            string varName = boolCmp.Groups[1].Value;
+            string op = boolCmp.Groups[2].Value;
+            bool rhsVal = bool.Parse(boolCmp.Groups[3].Value.ToLowerInvariant());
+            if (variables.TryGetValue(varName, out var val) && val is bool lhsVal)
+            {
+                return op == "=="
+                    ? lhsVal == rhsVal
+                    : lhsVal != rhsVal;
+            }
+            return false;
+        }
+        // ────────────────────────────────────────────────────────────────
+
+
+
         var cmpMatch = Regex.Match(condition, @"^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$");
         if (cmpMatch.Success)
         {
