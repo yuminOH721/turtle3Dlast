@@ -574,7 +574,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!82 &129892456
 AudioSource:
   m_ObjectHideFlags: 0
@@ -3314,14 +3314,14 @@ MonoBehaviour:
   nextCanvas: {fileID: 134637645}
   nextImage: {fileID: 2051535839}
   nextSprites:
+  - {fileID: 21300000, guid: 9bfcc0b38f74e0b4e8927ac84728cbfe, type: 3}
+  - {fileID: 21300000, guid: 05fc01370cb677a4885c0d216c4d6ddf, type: 3}
   - {fileID: 21300000, guid: dd9c4f9999cdc6b438bd1765c7333005, type: 3}
-  - {fileID: 21300000, guid: 58e22edfea1745a44b296d9f2ea33ff4, type: 3}
   - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
-  - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
-  - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
-  - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
-  - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
-  - {fileID: 21300000, guid: ac3ca57578746f440b3f0a15bec7e1ba, type: 3}
+  - {fileID: 21300000, guid: 4d6716628f38e1142b3979e0b77c2081, type: 3}
+  - {fileID: 21300000, guid: 50f289f8b1fa62147889f6b971edbe2e, type: 3}
+  - {fileID: 21300000, guid: 17a2a3da6853a9e4abe46efa700ed214, type: 3}
+  - {fileID: 21300000, guid: 68b6c0bcd6f83ab4d937ef949713f4f0, type: 3}
   AnswerText: {fileID: 1747096646}
   isAnswerButton: 0
 --- !u!1 &796932598
