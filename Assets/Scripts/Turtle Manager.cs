@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
+using System.Linq;
 
 //================================================================================
 // TurtleManager: 명령 해석, 풀 관리, UI 출력, 바운드 체크, 펜 제어
@@ -635,6 +636,102 @@ public class TurtleManager : MonoBehaviour
             }
             yield break;
         }
+
+        // ─── saveAnswer(stageId) ─────────────────────────────────────────
+        var saveMatch = Regex.Match(lower, @"^saveanswer\((\d+)\)$");
+        if (saveMatch.Success)
+        {
+            int stageId = int.Parse(saveMatch.Groups[1].Value);
+
+            // 1) 활성화된 첫 번째 거북이
+            GameObject go = turtlePool.Find(g => g.activeSelf);
+            if (go == null)
+            {
+                PrintError("[TurtleManager] 저장할 거북이가 없습니다.");
+                yield break;
+            }
+
+            // 2) Turtle3D가 기록한 키 포인트만 가져오기
+            var t3d = go.GetComponent<Turtle3D>();
+            Vector3[] positions = t3d.GetKeyPositions();
+
+            // 3) 색상 결정 (기존 방식 그대로 가져가도 좋고,
+            //    필요 없으면 Color.white 로 고정해도 됩니다)
+            var drawer = go.GetComponentInChildren<TurtleDrawer>();
+            var trails = drawer.GetAllTrails()
+                .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
+                .ToArray();
+            Color color = trails.Length > 0
+                ? trails[^1].material.color
+                : Color.white;
+
+            // 4) 저장 호출
+            AnswerExporter.ExportStage(
+                stageId,
+                positions,
+                color
+            );
+
+            yield break;
+        }
+        // ─── checkAnswer(stageId) ────────────────────────────────────────
+        var checkMatch = Regex.Match(lower, @"^checkanswer\((\d+)\)$");
+        if (checkMatch.Success)
+        {
+            int stageId = int.Parse(checkMatch.Groups[1].Value);
+            GameObject go = turtlePool.Find(g => g.activeSelf);
+            if (go == null)
+            {
+                PrintError("[TurtleManager] 활성화된 거북이가 없습니다.");
+                yield break;
+            }
+
+            // Turtle3D가 기록한 키 포인트만 가져오기
+            var t3d = go.GetComponent<Turtle3D>();
+            Vector3[] userPositions = t3d.GetKeyPositions();
+
+
+            // 3) 색상은 마지막 세그먼트 색 기준 (필요하다면 이 부분만 남겨도 OK)
+            var drawer = go.GetComponentInChildren<TurtleDrawer>();
+            var trails = drawer.GetAllTrails()
+                .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
+                .ToArray();
+            Color userColor = trails.Length > 0
+                ? trails[^1].material.color
+                : Color.white;
+
+            // 4) 저장된 정답 로드
+            var stage = AnswerLoader.GetStage(stageId);
+            if (stage == null)
+            {
+                PrintError($"[TurtleManager] Stage {stageId} 정답 데이터 없음");
+                yield break;
+            }
+
+            // 5) 좌표 + 색 검증
+            bool shapeOK = LineValidator.AreShapesEquivalentIgnoreOrder(
+                userPositions,
+                stage.positions,
+                posTol: 0.001f
+            );
+            bool colorOK = LineValidator.ColorsClose(
+                userColor,
+                stage.expectedColor,
+                tol: 0.01f
+            );
+            bool ok = shapeOK && colorOK;
+
+            // 6) 결과 출력
+            string msg = ok
+                ? $" Stage {stageId} 정답!"
+                : $" Stage {stageId} 오답";
+            Debug.Log(msg);
+            if (terminalText != null)
+                terminalText.text = msg + "\n";
+
+            yield break;
+        }
+
 
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));

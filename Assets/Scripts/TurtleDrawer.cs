@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 //================================================================================
 // TurtleDrawer: Trail 그리기 및 무지개 펜 설정
@@ -100,7 +101,7 @@ public class TurtleDrawer : MonoBehaviour
     {
         StopDrawing();
         pendingColor = default;
-        
+
         var trails = Object.FindObjectsByType<LineRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var lr in trails)
             if (lr.gameObject.name == "TurtleTrail")
@@ -199,5 +200,16 @@ public class TurtleDrawer : MonoBehaviour
                 currentLine.SetPosition(i, localPoints[i]); // 로컬 좌표 그대로 사용
         }
     }
+
+
+    public LineRenderer[] GetAllTrails()
+{
+    // gridcube에 붙은 모든 LineRenderer 중 이름이 "TurtleTrail"인 것만 반환
+    return gridcube
+        .GetComponentsInChildren<LineRenderer>(false)
+        .Where(lr => lr.gameObject.name == "TurtleTrail")
+        .ToArray();
+}
+
 
 }
