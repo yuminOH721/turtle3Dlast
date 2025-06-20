@@ -89,6 +89,22 @@ public class Turtle3D : MonoBehaviour
         // 회전만 기록 대상이 아니라면 기록 생략
     }
 
+    public IEnumerator MoveTo(Vector3 localTarget)
+    {
+        Vector3 start = tr.localPosition;
+        float dist = Vector3.Distance(start, localTarget);
+        float duration = dist / moveSpeed;
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            tr.localPosition = Vector3.Lerp(start, localTarget, Mathf.Clamp01(t / duration));
+            yield return null;
+        }
+        tr.localPosition = localTarget;
+    }
+
+
     // ─── 외부에서 키 포인트만 꺼내갈 수 있도록 Getter ─────────
     public Vector3[] GetKeyPositions() => keyPositions.ToArray();
 }

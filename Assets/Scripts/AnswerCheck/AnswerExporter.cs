@@ -25,18 +25,13 @@ public static class AnswerExporter
             set = new AnswerSet();
         }
 
-        // 2) 기존에 같은 id가 있으면 덮어쓰기, 없으면 새로 추가
-        var existingIndex = set.stages.FindIndex(s => s.id == stageId);
-        var newStage = new AnswerStage
-        {
-            id = stageId,
-            expectedColor = expectedColor,
-            positions = positions
-        };
+        // 2) 같은 id가 있으면 덮어쓰기, 없으면 새로 추가
+        int existingIndex = set.stages.FindIndex(s => s.id == stageId);
+        var newStage = new AnswerStage { id = stageId, expectedColor = expectedColor, positions = positions };
         if (existingIndex >= 0)
-            set.stages[existingIndex] = newStage;
+            set.stages[existingIndex] = newStage;   // 이미 있던 건 덮어쓰기
         else
-            set.stages.Add(newStage);
+            set.stages.Add(newStage);               // 없던 건 새로 추가
 
         // 3) JSON 쓰기
         string outJson = JsonUtility.ToJson(set, prettyPrint: true);
