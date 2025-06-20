@@ -68,6 +68,7 @@ public class ButtonManager : MonoBehaviour
         if (turtleManager != null)
         {
             turtleManager.ResetAllTurtles();
+            turtleManager.currentStageId = NB + 1;
         }
         else if (TurtleManager.instance != null)
         {

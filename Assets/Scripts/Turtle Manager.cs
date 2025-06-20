@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using TMPro;
 using System.Linq;
 
@@ -40,9 +39,9 @@ public class TurtleManager : MonoBehaviour
     public static TurtleManager instance;
     private BoxCollider gridCollider;
 
-
     private string lastFriendlyMessage;
 
+    [HideInInspector] public int currentStageId;
 
     private static readonly Dictionary<string, Color> ColorNameMap = new()
 {
@@ -246,6 +245,17 @@ public class TurtleManager : MonoBehaviour
 
         yield return new WaitForSeconds(stepDelay);
         isProcessing = false;
+
+        if (commandQueue.Count == 0)
+        {
+            // 현재 스테이지 ID로 자동 checkAnswer 호출
+            // currentStageId 는 ButtonManager에서 Run 버튼 클릭 시 세팅해 두었다고 가정
+            StartCoroutine(DispatchCommand(
+                new Command($"checkAnswer({currentStageId})", 0)
+            ));
+        }
+
+        yield break;
     }
 
     private IEnumerator DispatchCommand(Command cmd)
@@ -464,7 +474,12 @@ public class TurtleManager : MonoBehaviour
         // ────────────────────────────────────────────────────────────────────────────
 
         // for i in range(n):
-        if (Regex.IsMatch(normalized, @"^for [a-zA-Z_]\w* in range\(\d+\):$"))
+        // ─── for i in range(n) 혹은 range(var): ──────────────────────────
+        var forMatch = Regex.Match(
+            normalized,
+            @"^for\s+[a-zA-Z_]\w*\s+in\s+range\(\s*([a-zA-Z_]\w*|\d+)\s*\):$"
+        );
+        if (forMatch.Success)
         {
             var bodyCmds = DequeueBlock(indent);
             if (bodyCmds.Count == 0)
@@ -473,14 +488,28 @@ public class TurtleManager : MonoBehaviour
                 yield break;
             }
 
-            string[] tokens = normalized.Split(new[] { ' ', '(', ')', ':' }, StringSplitOptions.RemoveEmptyEntries);
-            int count = int.Parse(tokens[4]);
+            // 그룹 1에 들어온 값이 숫자인지, 변수명인지를 구분
+            string iterToken = forMatch.Groups[1].Value;
+            int count;
+            if (int.TryParse(iterToken, out var n))
+            {
+                count = n;
+            }
+            else if (variables.TryGetValue(iterToken, out object varObj) && varObj is int vi)
+            {
+                count = vi;
+            }
+            else
+            {
+                PrintError($"[TurtleManager] for문의 범위를 알 수 없습니다: {iterToken}");
+                yield break;
+            }
 
             for (int i = 0; i < count; i++)
             {
                 foreach (var c in bodyCmds)
                 {
-                    yield return StartCoroutine(DispatchCommand(c));  // 바로 실행!
+                    yield return StartCoroutine(DispatchCommand(c));
                     yield return new WaitForSeconds(stepDelay);
                 }
             }
@@ -616,44 +645,100 @@ public class TurtleManager : MonoBehaviour
             }
             yield break;
         }
-
-        // ─── saveAnswer(stageId) ─────────────────────────────────────────
-        var saveMatch = Regex.Match(lower, @"^saveanswer\((\d+)\)$");
-        if (saveMatch.Success)
+        // ─── goto(x,y,z) w/ boundary check ───────────────────────────────
+        else if (lower.Contains(".goto(") && raw.EndsWith(")"))
         {
-            int stageId = int.Parse(saveMatch.Groups[1].Value);
-
-            // 1) 활성화된 첫 번째 거북이
-            GameObject go = turtlePool.Find(g => g.activeSelf);
-            if (go == null)
+            // 1) 파싱: a.goto(exprX, exprY, exprZ)
+            int p0 = raw.IndexOf('(') + 1;
+            int p1 = raw.LastIndexOf(')');
+            var parts = raw.Substring(p0, p1 - p0)
+                           .Split(',')
+                           .Select(s => s.Trim())
+                           .ToArray();
+            if (parts.Length == 3
+                && TryParseExpression(parts[0], out float x)
+                && TryParseExpression(parts[1], out float y)
+                && TryParseExpression(parts[2], out float z))
             {
-                PrintError("[TurtleManager] 저장할 거북이가 없습니다.");
-                yield break;
+                string name = raw.Substring(0, raw.IndexOf('.'));
+                if (namedTurtles.TryGetValue(name, out var t))
+                {
+
+                    // grid 단위 좌표를 CellSize만큼 곱해서 월드/로컬 단위로 바꾼 뒤
+                    // spawnPosition(=격자 중앙) 기준으로 오프셋
+                    float cs = TurtleManager.instance.CellSize;
+                    Vector3 offset = new Vector3(x, y, z) * cs;
+                    Vector3 targetLocal = TurtleManager.spawnPosition + offset;
+
+                    // 3) 바운드 검사 (gridCollider는 TurtleManager.instance.gridParent의 콜라이더)
+                    var gc = TurtleManager.instance.gridParent.GetComponent<BoxCollider>();
+                    Vector3 center = gc.center;
+                    Vector3 halfSize = gc.size * 0.5f;
+                    float eps = 1e-3f;
+                    bool insideX = targetLocal.x >= center.x - halfSize.x - eps
+                                && targetLocal.x <= center.x + halfSize.x + eps;
+                    bool insideY = targetLocal.y >= center.y - halfSize.y - eps
+                                && targetLocal.y <= center.y + halfSize.y + eps;
+                    bool insideZ = targetLocal.z >= center.z - halfSize.z - eps
+                                && targetLocal.z <= center.z + halfSize.z + eps;
+
+                    if (insideX && insideY && insideZ)
+                    {
+                        yield return StartCoroutine(t.MoveTo(targetLocal));
+                    }
+                    else
+                    {
+                        PrintError($"[TurtleManager] 이동 범위 벗어남: goto({x},{y},{z})", "outOfBounds");
+                    }
+                }
+                else
+                {
+                    PrintError($"[TurtleManager] goto 실패: 거북이 '{name}' 없음.");
+                }
             }
-
-            // 2) Turtle3D가 기록한 키 포인트만 가져오기
-            var t3d = go.GetComponent<Turtle3D>();
-            Vector3[] positions = t3d.GetKeyPositions();
-
-            // 3) 색상 결정 (기존 방식 그대로 가져가도 좋고,
-            //    필요 없으면 Color.white 로 고정해도 됩니다)
-            var drawer = go.GetComponentInChildren<TurtleDrawer>();
-            var trails = drawer.GetAllTrails()
-                .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
-                .ToArray();
-            Color color = trails.Length > 0
-                ? trails[^1].material.color
-                : Color.white;
-
-            // 4) 저장 호출
-            AnswerExporter.ExportStage(
-                stageId,
-                positions,
-                color
-            );
-
+            else
+            {
+                PrintError($"[TurtleManager] goto 파싱 실패: {raw}");
+            }
             yield break;
         }
+        // // ─── saveAnswer(stageId) ─────────────────────────────────────────
+        // var saveMatch = Regex.Match(lower, @"^saveanswer\((\d+)\)$");
+        // if (saveMatch.Success)
+        // {
+        //     int stageId = int.Parse(saveMatch.Groups[1].Value);
+
+        //     // 1) 활성화된 첫 번째 거북이
+        //     GameObject go = turtlePool.Find(g => g.activeSelf);
+        //     if (go == null)
+        //     {
+        //         PrintError("[TurtleManager] 저장할 거북이가 없습니다.");
+        //         yield break;
+        //     }
+
+        //     // 2) Turtle3D가 기록한 키 포인트만 가져오기
+        //     var t3d = go.GetComponent<Turtle3D>();
+        //     Vector3[] positions = t3d.GetKeyPositions();
+
+        //     // 3) 색상 결정 (기존 방식 그대로 가져가도 좋고,
+        //     //    필요 없으면 Color.white 로 고정해도 됩니다)
+        //     var drawer = go.GetComponentInChildren<TurtleDrawer>();
+        //     var trails = drawer.GetAllTrails()
+        //         .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
+        //         .ToArray();
+        //     Color color = trails.Length > 0
+        //         ? trails[^1].material.color
+        //         : Color.white;
+
+        //     // 4) 저장 호출
+        //     AnswerExporter.ExportStage(
+        //         stageId,
+        //         positions,
+        //         color
+        //     );
+
+        //     yield break;
+        // }
         // ─── checkAnswer(stageId) ────────────────────────────────────────
         var checkMatch = Regex.Match(lower, @"^checkanswer\((\d+)\)$");
         if (checkMatch.Success)
