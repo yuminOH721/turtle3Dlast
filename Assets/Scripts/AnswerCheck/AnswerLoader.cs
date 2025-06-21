@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Linq;
 
 public static class AnswerLoader
 {
@@ -12,8 +13,11 @@ public static class AnswerLoader
         return JsonUtility.FromJson<AnswerSet>(ta.text) ?? new AnswerSet();
     }
 
-    public static AnswerStage GetStage(int id)
+    public static AnswerStage GetStage(int stageId)
     {
-        return LoadAll().stages.Find(s => s.id == id);
+        var txt = Resources.Load<TextAsset>("answers").text;
+        var set = JsonUtility.FromJson<AnswerSet>(txt);
+        return set.stages.FirstOrDefault(s => s.id == stageId);
     }
+
 }
