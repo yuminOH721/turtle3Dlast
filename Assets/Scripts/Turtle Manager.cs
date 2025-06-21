@@ -43,6 +43,9 @@ public class TurtleManager : MonoBehaviour
 
     [HideInInspector] public int currentStageId;
 
+    private Vector3 origPos;
+    private Quaternion origRot;
+    private Vector3 origScale;
     private static readonly Dictionary<string, Color> ColorNameMap = new()
 {
     { "red",    Color.red },
@@ -89,6 +92,10 @@ public class TurtleManager : MonoBehaviour
                 Vector3 centerWorld = gridCollider.bounds.center;
                 spawnPosition = gridParent.InverseTransformPoint(centerWorld);
             }
+
+            origPos = gridParent.localPosition;
+            origRot = gridParent.localRotation;
+            origScale = gridParent.localScale;
         }
 
         CreateTurtlePool();
@@ -702,45 +709,58 @@ public class TurtleManager : MonoBehaviour
             }
             yield break;
         }
-        // // ─── saveAnswer(stageId) ─────────────────────────────────────────
-        // var saveMatch = Regex.Match(lower, @"^saveanswer\((\d+)\)$");
-        // if (saveMatch.Success)
-        // {
-        //     int stageId = int.Parse(saveMatch.Groups[1].Value);
+        // ─── 0) saveAnswer(stageId) ─────────────────────────────────────────
+        var saveMatch = Regex.Match(
+            lower,
+            @"^saveanswer\(\s*(\d+)(?:\s*,\s*""(\w+)""\s*)?\)$",
+            RegexOptions.IgnoreCase
+        );
+        if (saveMatch.Success)
+        {
+            string keyword = saveMatch.Groups[2].Success
+                ? saveMatch.Groups[2].Value : "";
+            int stageId = int.Parse(saveMatch.Groups[1].Value);
 
-        //     // 1) 활성화된 첫 번째 거북이
-        //     GameObject go = turtlePool.Find(g => g.activeSelf);
-        //     if (go == null)
-        //     {
-        //         PrintError("[TurtleManager] 저장할 거북이가 없습니다.");
-        //         yield break;
-        //     }
+            // 0.1) 그리드 초기화 (기준 좌표로 리셋)
+            ResetGridTransform();
 
-        //     // 2) Turtle3D가 기록한 키 포인트만 가져오기
-        //     var t3d = go.GetComponent<Turtle3D>();
-        //     Vector3[] positions = t3d.GetKeyPositions();
+            // 0.2) 활성화된 첫 번째 거북이
+            GameObject go = turtlePool.Find(g => g.activeSelf);
+            if (go == null)
+            {
+                PrintError("[TurtleManager] 저장할 거북이가 없습니다.");
+                yield break;
+            }
 
-        //     // 3) 색상 결정 (기존 방식 그대로 가져가도 좋고,
-        //     //    필요 없으면 Color.white 로 고정해도 됩니다)
-        //     var drawer = go.GetComponentInChildren<TurtleDrawer>();
-        //     var trails = drawer.GetAllTrails()
-        //         .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
-        //         .ToArray();
-        //     Color color = trails.Length > 0
-        //         ? trails[^1].material.color
-        //         : Color.white;
+            // 0.3) 키 포인트(positions) 가져오기
+            var t3d = go.GetComponent<Turtle3D>();
+            Vector3[] positions = t3d.GetKeyPositions();
 
-        //     // 4) 저장 호출
-        //     AnswerExporter.ExportStage(
-        //         stageId,
-        //         positions,
-        //         color
-        //     );
+            // 0.4) 색상 결정 (필요 없으면 Color.white 고정 가능)
+            var drawer = go.GetComponentInChildren<TurtleDrawer>();
+            var trails = drawer.GetAllTrails()
+                .Where(lr => lr.positionCount > 1)
+                .ToArray();
+            Color color = trails.Length > 0
+                ? trails[^1].material.color
+                : Color.white;
 
-        //     yield break;
-        // }
-        // ─── checkAnswer(stageId) ────────────────────────────────────────
-        var checkMatch = Regex.Match(lower, @"^checkanswer\((\d+)\)$");
+            // 0.5) 파일/리소스에 저장 호출
+            AnswerExporter.ExportStage(
+                stageId,
+                positions,
+                color,
+                keyword
+            );
+
+            yield break;
+        }
+        // ─── 1) checkAnswer(stageId) ────────────────────────────────────────
+        var checkMatch = Regex.Match(lower,
+            @"^checkanswer\(\s*(\d+)\s*(?:,\s*""(\w+)""\s*)?\)$",
+             RegexOptions.IgnoreCase
+            );
+
         if (checkMatch.Success)
         {
             int stageId = int.Parse(checkMatch.Groups[1].Value);
@@ -751,21 +771,18 @@ public class TurtleManager : MonoBehaviour
                 yield break;
             }
 
-            // Turtle3D가 기록한 키 포인트만 가져오기
+            // 1.1) 그리드 초기화
+            ResetGridTransform();
+
+            // 1.2) Turtle3D 스크립트에서 KeyPositions(저장된 기준 점)만 꺼내오기
             var t3d = go.GetComponent<Turtle3D>();
-            Vector3[] userPositions = t3d.GetKeyPositions();
+            if (t3d == null)
+            {
+                PrintError("[TurtleManager] Turtle3D 컴포넌트를 찾을 수 없습니다.");
+                yield break;
+            }
 
-
-            // 3) 색상은 마지막 세그먼트 색 기준 (필요하다면 이 부분만 남겨도 OK)
-            var drawer = go.GetComponentInChildren<TurtleDrawer>();
-            var trails = drawer.GetAllTrails()
-                .Where(lr => lr.gameObject.activeInHierarchy && lr.enabled && lr.positionCount > 1)
-                .ToArray();
-            Color userColor = trails.Length > 0
-                ? trails[^1].material.color
-                : Color.white;
-
-            // 4) 저장된 정답 로드
+            // 1.3) 정답 로드
             var stage = AnswerLoader.GetStage(stageId);
             if (stage == null)
             {
@@ -773,30 +790,49 @@ public class TurtleManager : MonoBehaviour
                 yield break;
             }
 
-            // 5) 좌표 + 색 검증
+            // 1.4) 궤적 형태 비교
+            Vector3[] userPos = t3d.GetKeyPositions();
             bool shapeOK = LineValidator.AreShapesEquivalentIgnoreOrder(
-                userPositions,
+                userPos,
                 stage.positions,
                 posTol: 0.001f
             );
-            bool colorOK = LineValidator.ColorsClose(
-                userColor,
-                stage.expectedColor,
-                tol: 0.01f
-            );
-            bool ok = shapeOK && colorOK;
 
-            // 6) 결과 출력
-            string msg = ok
-                ? $" Stage {stageId} 정답!"
-                : $" Stage {stageId} 오답";
-            Debug.Log(msg);
-            if (terminalText != null)
-                terminalText.text = msg + "\n";
+            // 1.5) 키워드(if/for/while) 사용 여부 검사
+            bool keywordOK = true;
+            if (!string.IsNullOrEmpty(stage.requiredKeyword))
+            {
+                keywordOK = Regex.IsMatch(
+                    commandInput.text ?? "",
+                    $@"\b{stage.requiredKeyword}\b",
+                    RegexOptions.IgnoreCase
+                );
+            }
+
+            // 1.6) 최종 판정 & 피드백
+            string msg;
+            if (!shapeOK)
+            {
+                // 도형이 틀렸을 때
+                msg = $"Stage {stageId} 오답: 도형이 일치하지 않습니다.";
+            }
+            else if (!keywordOK)
+            {
+                // 키워드가 누락되었을 때
+                msg = $"Stage {stageId} 오답: “{stage.requiredKeyword}” 명령어를 코드에 포함하세요.";
+            }
+            else
+            {
+                // 완전 정답
+                msg = $"Stage {stageId} 정답!";
+            }
+            terminalText.text = msg + "\n";
+
+
+            Debug.Log($"[checkAnswer] {msg}");
 
             yield break;
         }
-
 
         // 나머지 기본 명령
         yield return StartCoroutine(HandleBuiltinCommands(raw, lower));
@@ -1361,6 +1397,21 @@ public class TurtleManager : MonoBehaviour
         variables[varName] = userInput;
     }
 
+    private void ResetGridTransform()
+    {
+        gridParent.localPosition = origPos;
+        gridParent.localRotation = origRot;
+        gridParent.localScale = origScale;
+    }
+
+    private Vector3[] ExtractPositions(LineRenderer lr)
+    {
+        var arr = new Vector3[lr.positionCount];
+        lr.GetPositions(arr);
+        return arr;
+    }
+
+
 }
 
 class Command
@@ -1379,6 +1430,5 @@ class Command
 
     public override string ToString()
         => $"[{BlockType ?? "global"}] (parent: {ParentBlockType ?? "none"}) {Raw}";
-
 
 }
